@@ -1,0 +1,54 @@
+// ---------------------------------------------------------------------------
+// 9. roommate_profiles  (users 1:1)
+// ---------------------------------------------------------------------------
+model RoommateProfile {
+  id                String    @id @default(uuid()) @db.Uuid
+  userId            String    @unique @map("user_id") @db.Uuid
+  bio               String?
+  occupation        String?
+  budgetMin         Decimal?  @map("budget_min") @db.Decimal(12, 2)
+  budgetMax         Decimal?  @map("budget_max") @db.Decimal(12, 2)
+  preferredLocation String?   @map("preferred_location")
+  moveInDate        DateTime? @map("move_in_date") @db.Timestamptz(6)
+  smoking           Boolean   @default(false)
+  pets              Boolean   @default(false)
+  genderPreference  String?   @map("gender_preference")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([preferredLocation])
+  @@map("roommate_profiles")
+}
+
+// ---------------------------------------------------------------------------
+// 10. preferences  (e.g. "Non Smoker", "Pet Friendly", "Quiet", "Student")
+// ---------------------------------------------------------------------------
+model Preference {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  type      String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  userPreferences UserPreference[]
+
+  @@map("preferences")
+}
+
+// ---------------------------------------------------------------------------
+// 11. user_preferences  (users N:M preferences)
+// ---------------------------------------------------------------------------
+model UserPreference {
+  userId       String   @map("user_id") @db.Uuid
+  preferenceId String   @map("preference_id") @db.Uuid
+  value        String?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  preference Preference @relation(fields: [preferenceId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([userId, preferenceId])
+  @@index([preferenceId])
+  @@map("user_preferences")
+}

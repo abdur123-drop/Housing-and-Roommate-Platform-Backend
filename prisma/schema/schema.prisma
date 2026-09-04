@@ -1,0 +1,11 @@
+// Prisma schema for the Property Rental & Roommate Matching Platform.
+// Schema is split by domain across this folder (see prisma.config.ts -> schema: "prisma/schema").
+
+generator client {
+  provider = "prisma-client"
+  output   = "../../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}

@@ -1,0 +1,57 @@
+// ---------------------------------------------------------------------------
+// 1. users
+// ---------------------------------------------------------------------------
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  email     String   @unique
+  password  String
+  phone     String?
+  avatar    String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  userRoles           UserRole[]
+  ownedProperties     Property[]           @relation("PropertyOwner")
+  managedProperties   Property[]           @relation("PropertyManager")
+  roommateProfile     RoommateProfile?
+  userPreferences     UserPreference[]
+  viewingRequests     ViewingRequest[]
+  applications        Application[]
+  leases              Lease[]
+  rentPayments        RentPayment[]
+  utilityBillSplits   UtilityBillSplit[]
+  maintenanceRequests MaintenanceRequest[] @relation("MaintenanceTenant")
+  assignedMaintenance MaintenanceRequest[] @relation("MaintenanceAssignee")
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// 2. roles  (OWNER | TENANT | ROOMMATE | PROPERTY_MANAGER | ADMIN)
+// ---------------------------------------------------------------------------
+model Role {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  userRoles UserRole[]
+
+  @@map("roles")
+}
+
+// ---------------------------------------------------------------------------
+// 3. user_roles  (users N:M roles)
+// ---------------------------------------------------------------------------
+model UserRole {
+  userId    String   @map("user_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}

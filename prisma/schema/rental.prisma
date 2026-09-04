@@ -1,0 +1,86 @@
+// ---------------------------------------------------------------------------
+// 12. viewing_requests  -- "I want to SEE this room."
+// ---------------------------------------------------------------------------
+model ViewingRequest {
+  id            String               @id @default(uuid()) @db.Uuid
+  userId        String               @map("user_id") @db.Uuid
+  propertyId    String               @map("property_id") @db.Uuid
+  roomId        String?              @map("room_id") @db.Uuid
+  requestedDate DateTime             @map("requested_date") @db.Timestamptz(6)
+  requestedTime String?              @map("requested_time")
+  message       String?
+  status        ViewingRequestStatus @default(PENDING)
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  room     Room?    @relation(fields: [roomId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  applications Application[]
+
+  @@index([userId])
+  @@index([propertyId])
+  @@index([roomId])
+  @@index([status])
+  @@map("viewing_requests")
+}
+
+// ---------------------------------------------------------------------------
+// 13. applications  -- "I want to RENT this room."
+// ---------------------------------------------------------------------------
+model Application {
+  id               String            @id @default(uuid()) @db.Uuid
+  userId           String            @map("user_id") @db.Uuid
+  roomId           String            @map("room_id") @db.Uuid
+  viewingRequestId String?           @map("viewing_request_id") @db.Uuid
+  message          String?
+  status           ApplicationStatus @default(PENDING)
+  submittedAt      DateTime          @default(now()) @map("submitted_at") @db.Timestamptz(6)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Rental history is protected: a user/room with applications cannot be deleted.
+  user           User            @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  room           Room            @relation(fields: [roomId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  viewingRequest ViewingRequest? @relation(fields: [viewingRequestId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  lease Lease?
+
+  @@index([userId])
+  @@index([roomId])
+  @@index([status])
+  @@index([viewingRequestId])
+  @@map("applications")
+}
+
+// ---------------------------------------------------------------------------
+// 14. leases  (one approved application -> one lease)
+// ---------------------------------------------------------------------------
+model Lease {
+  id              String      @id @default(uuid()) @db.Uuid
+  applicationId   String      @unique @map("application_id") @db.Uuid
+  tenantId        String      @map("tenant_id") @db.Uuid
+  roomId          String      @map("room_id") @db.Uuid
+  startDate       DateTime    @map("start_date") @db.Timestamptz(6)
+  endDate         DateTime?   @map("end_date") @db.Timestamptz(6)
+  monthlyRent     Decimal     @map("monthly_rent") @db.Decimal(12, 2)
+  securityDeposit Decimal     @default(0) @map("security_deposit") @db.Decimal(12, 2)
+  status          LeaseStatus @default(PENDING)
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  tenant      User        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  room        Room        @relation(fields: [roomId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  rentPayments RentPayment[]
+
+  // NOTE: a partial unique index -- UNIQUE (room_id) WHERE status = 'ACTIVE' --
+  // is added by hand in the migration SQL. Prisma cannot express partial
+  // indexes, and it is what guarantees a room never has two ACTIVE leases.
+  @@index([tenantId])
+  @@index([roomId])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@map("leases")
+}

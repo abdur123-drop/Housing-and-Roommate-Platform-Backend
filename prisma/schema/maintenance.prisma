@@ -1,0 +1,30 @@
+// ---------------------------------------------------------------------------
+// 18. maintenance_requests
+// ---------------------------------------------------------------------------
+model MaintenanceRequest {
+  id          String              @id @default(uuid()) @db.Uuid
+  tenantId    String              @map("tenant_id") @db.Uuid
+  propertyId  String              @map("property_id") @db.Uuid
+  roomId      String?             @map("room_id") @db.Uuid
+  title       String
+  description String
+  priority    MaintenancePriority @default(MEDIUM)
+  status      MaintenanceStatus   @default(OPEN)
+  assignedTo  String?             @map("assigned_to") @db.Uuid
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  resolvedAt  DateTime?           @map("resolved_at") @db.Timestamptz(6)
+
+  tenant   User     @relation("MaintenanceTenant", fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  room     Room?    @relation(fields: [roomId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  assignee User?    @relation("MaintenanceAssignee", fields: [assignedTo], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([tenantId])
+  @@index([propertyId])
+  @@index([roomId])
+  @@index([assignedTo])
+  @@index([status])
+  @@index([priority])
+  @@map("maintenance_requests")
+}

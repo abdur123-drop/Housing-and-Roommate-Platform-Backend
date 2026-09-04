@@ -1,0 +1,118 @@
+enum PropertyType {
+  APARTMENT
+  HOUSE
+  BUILDING
+  CONDO
+  VILLA
+  OTHER
+}
+
+enum PropertyStatus {
+  DRAFT
+  PUBLISHED
+  UNPUBLISHED
+  ARCHIVED
+}
+
+enum UnitStatus {
+  AVAILABLE
+  PARTIALLY_OCCUPIED
+  FULLY_OCCUPIED
+  MAINTENANCE
+  UNAVAILABLE
+}
+
+enum RoomType {
+  PRIVATE
+  SHARED
+  MASTER
+  STUDIO
+}
+
+enum RoomStatus {
+  AVAILABLE
+  RESERVED
+  OCCUPIED
+  MAINTENANCE
+  UNAVAILABLE
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  UNAVAILABLE
+  RESERVED
+  OCCUPIED
+}
+
+enum ViewingRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  COMPLETED
+}
+
+enum ApplicationStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum LeaseStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  TERMINATED
+}
+
+enum RentPaymentStatus {
+  PENDING
+  PAID
+  LATE
+  FAILED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CARD
+  MOBILE_PAYMENT
+  OTHER
+}
+
+enum UtilityType {
+  ELECTRICITY
+  GAS
+  WATER
+  INTERNET
+  OTHER
+}
+
+enum UtilityBillStatus {
+  PENDING
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+}
+
+enum UtilitySplitStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+enum MaintenancePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum MaintenanceStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}

@@ -1,42 +1,57 @@
 {
-  "name": "ph-6-housing-and-roommate-platform-backend",
-  "private": true,
-  "packageManager": "pnpm@11.21.0",
-  "type": "module",
-  "engines": {
-    "node": "^22.18.0 || >=24.11.0"
-  },
-  "scripts": {
-    "build": "tsdown",
-    "composer:deploy": "prisma deploy module.ts",
-    "composer:dev": "prisma dev module.ts",
-    "contract:emit": "prisma contract emit",
-    "db:init": "prisma db init",
-    "db:update": "prisma db update",
-    "db:verify": "prisma db verify",
-    "deploy": "pnpm run build && pnpm run composer:deploy",
-    "dev": "tsx watch src/index.ts",
-    "dev:composer": "pnpm run build && pnpm run composer:dev",
-    "migrate": "prisma db migrate",
-    "migration:plan": "prisma migration plan",
-    "migration:show": "prisma migration show",
-    "migration:status": "prisma migration status",
-    "skills:sync": "prisma skills sync || exit 0",
-    "start": "node dist/server.mjs",
-    "postinstall": "prisma skills sync || exit 0"
-  },
-  "dependencies": {
-    "@prisma/composer": "0.16.0",
-    "@prisma/composer-prisma-cloud": "0.16.0",
-    "@prisma/orm-postgres": "8.0.0-rc.8",
-    "alchemy": "2.0.0-beta.74",
-    "temporal-polyfill": "^1.0.4"
-  },
-  "devDependencies": {
-    "@types/node": "^25.6.2",
-    "prisma": "latest",
-    "tsdown": "^0.22.14",
-    "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
-  }
+    "name": "ph-6-housing-and-roommate-platform-backend",
+    "version": "1.0.0",
+    "description": "Property Rental & Roommate Matching Platform Backend",
+    "main": "index.js",
+    "private": true,
+    "packageManager": "pnpm@11.21.0",
+    "engines": {
+        "node": "^22.18.0 || >=24.11.0"
+    },
+    "scripts": {
+        "dev": "tsx watch src/server.ts",
+        "build": "tsc",
+        "start": "node dist/src/server.js",
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "prisma:validate": "prisma validate",
+        "prisma:generate": "prisma generate",
+        "prisma:format": "prisma format",
+        "migrate:dev": "prisma migrate dev",
+        "migrate:deploy": "prisma migrate deploy",
+        "migrate:status": "prisma migrate status",
+        "format:check": "npx @biomejs/biome format ./src",
+        "format:fix": "npx @biomejs/biome format --write ./src",
+        "lint:check": "npx @biomejs/biome lint ./src",
+        "lint:fix": "npx @biomejs/biome lint --write ./src"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "module",
+    "dependencies": {
+        "@prisma/adapter-pg": "^7.9.1",
+        "@prisma/client": "^7.9.1",
+        "bcryptjs": "^3.0.3",
+        "cookie-parser": "^1.4.7",
+        "cors": "^2.8.6",
+        "date-fns": "^4.4.0",
+        "dotenv": "^17.4.2",
+        "express": "^5.2.1",
+        "http-status": "^2.1.0",
+        "jsonwebtoken": "^9.0.3",
+        "pg": "^8.22.0",
+        "zod": "^4.4.3"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "2.5.7",
+        "@types/cookie-parser": "^1.4.10",
+        "@types/cors": "^2.8.19",
+        "@types/express": "^5.0.6",
+        "@types/jsonwebtoken": "^9.0.10",
+        "@types/node": "^26.1.2",
+        "@types/pg": "^8.20.0",
+        "prisma": "^7.9.1",
+        "tsx": "^4.23.1",
+        "typescript": "^5.9.3"
+    }
 }

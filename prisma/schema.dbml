@@ -1,0 +1,521 @@
+Enum "ApplicationStatus" {
+  "PENDING"
+  "UNDER_REVIEW"
+  "APPROVED"
+  "REJECTED"
+  "WITHDRAWN"
+}
+
+Enum "AvailabilityStatus" {
+  "AVAILABLE"
+  "UNAVAILABLE"
+  "RESERVED"
+  "OCCUPIED"
+}
+
+Enum "LeaseStatus" {
+  "PENDING"
+  "ACTIVE"
+  "EXPIRED"
+  "TERMINATED"
+}
+
+Enum "MaintenancePriority" {
+  "LOW"
+  "MEDIUM"
+  "HIGH"
+  "URGENT"
+}
+
+Enum "MaintenanceStatus" {
+  "OPEN"
+  "IN_PROGRESS"
+  "RESOLVED"
+  "CLOSED"
+}
+
+Enum "PaymentMethod" {
+  "CASH"
+  "BANK_TRANSFER"
+  "CARD"
+  "MOBILE_PAYMENT"
+  "OTHER"
+}
+
+Enum "PropertyStatus" {
+  "DRAFT"
+  "PUBLISHED"
+  "UNPUBLISHED"
+  "ARCHIVED"
+}
+
+Enum "PropertyType" {
+  "APARTMENT"
+  "HOUSE"
+  "BUILDING"
+  "CONDO"
+  "VILLA"
+  "OTHER"
+}
+
+Enum "RentPaymentStatus" {
+  "PENDING"
+  "PAID"
+  "LATE"
+  "FAILED"
+}
+
+Enum "RoomStatus" {
+  "AVAILABLE"
+  "RESERVED"
+  "OCCUPIED"
+  "MAINTENANCE"
+  "UNAVAILABLE"
+}
+
+Enum "RoomType" {
+  "PRIVATE"
+  "SHARED"
+  "MASTER"
+  "STUDIO"
+}
+
+Enum "UnitStatus" {
+  "AVAILABLE"
+  "PARTIALLY_OCCUPIED"
+  "FULLY_OCCUPIED"
+  "MAINTENANCE"
+  "UNAVAILABLE"
+}
+
+Enum "UtilityBillStatus" {
+  "PENDING"
+  "PARTIALLY_PAID"
+  "PAID"
+  "OVERDUE"
+}
+
+Enum "UtilitySplitStatus" {
+  "PENDING"
+  "PAID"
+  "OVERDUE"
+}
+
+Enum "UtilityType" {
+  "ELECTRICITY"
+  "GAS"
+  "WATER"
+  "INTERNET"
+  "OTHER"
+}
+
+Enum "ViewingRequestStatus" {
+  "PENDING"
+  "APPROVED"
+  "REJECTED"
+  "CANCELLED"
+  "COMPLETED"
+}
+
+Table "_prisma_migrations" {
+  "id" varchar(36) [pk, not null]
+  "checksum" varchar(64) [not null]
+  "finished_at" timestamptz
+  "migration_name" varchar(255) [not null]
+  "logs" text
+  "rolled_back_at" timestamptz
+  "started_at" timestamptz [not null, default: `now()`]
+  "applied_steps_count" int4 [not null, default: 0]
+}
+
+Table "rent_payments" {
+  "id" uuid [pk, not null]
+  "lease_id" uuid [not null]
+  "tenant_id" uuid [not null]
+  "amount" numeric(12,2) [not null]
+  "due_date" timestamptz [not null]
+  "paid_at" timestamptz
+  "status" RentPaymentStatus [not null, default: 'PENDING']
+  "payment_method" PaymentMethod
+  "transaction_id" text [unique]
+  "created_at" timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    due_date [type: btree, name: "rent_payments_due_date_idx"]
+    lease_id [type: btree, name: "rent_payments_lease_id_idx"]
+    status [type: btree, name: "rent_payments_status_idx"]
+    tenant_id [type: btree, name: "rent_payments_tenant_id_idx"]
+  }
+}
+
+Table "utility_bills" {
+  "id" uuid [pk, not null]
+  "property_id" uuid [not null]
+  "unit_id" uuid
+  "type" UtilityType [not null]
+  "billing_period_start" timestamptz [not null]
+  "billing_period_end" timestamptz [not null]
+  "total_amount" numeric(12,2) [not null]
+  "due_date" timestamptz [not null]
+  "status" UtilityBillStatus [not null, default: 'PENDING']
+  "created_at" timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" timestamptz [not null]
+
+  Indexes {
+    (billing_period_start, billing_period_end) [type: btree, name: "utility_bills_billing_period_start_billing_period_end_idx"]
+    property_id [type: btree, name: "utility_bills_property_id_idx"]
+    status [type: btree, name: "utility_bills_status_idx"]
+    unit_id [type: btree, name: "utility_bills_unit_id_idx"]
+  }
+}
+
+Table "utility_bill_splits" {
+  "id" uuid [pk, not null]
+  "bill_id" uuid [not null]
+  "tenant_id" uuid [not null]
+  "amount" numeric(12,2) [not null]
+  "status" UtilitySplitStatus [not null, default: 'PENDING']
+  "paid_at" timestamptz
+  "created_at" timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (bill_id, tenant_id) [type: btree, unique, name: "utility_bill_splits_bill_id_tenant_id_key"]
+    bill_id [type: btree, name: "utility_bill_splits_bill_id_idx"]
+    status [type: btree, name: "utility_bill_splits_status_idx"]
+    tenant_id [type: btree, name: "utility_bill_splits_tenant_id_idx"]
+  }
+}
+
+Table "maintenance_requests" {
+  "id" uuid [pk, not null]
+  "tenant_id" uuid [not null]
+  "property_id" uuid [not null]
+  "room_id" uuid
+  "title" text [not null]
+  "description" text [not null]
+  "priority" MaintenancePriority [not null, default: 'MEDIUM']
+  "status" MaintenanceStatus [not null, default: 'OPEN']
+  "assigned_to" uuid
+  "created_at" timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" timestamptz [not null]
+  "resolved_at" timestamptz
+
+  Indexes {
+    assigned_to [type: btree, name: "maintenance_requests_assigned_to_idx"]
+    priority [type: btree, name: "maintenance_requests_priority_idx"]
+    property_id [type: btree, name: "maintenance_requests_property_id_idx"]
+    room_id [type: btree, name: "maintenance_requests_room_id_idx"]
+    status [type: btree, name: "maintenance_requests_status_idx"]
+    tenant_id [type: btree, name: "maintenance_requests_tenant_id_idx"]
+  }
+}
+
+Table "properties" {
+  "id" uuid [pk, not null]
+  "owner_id" uuid [not null]
+  "manager_id" uuid
+  "title" text [not null]
+  "description" text
+  "property_type" PropertyType [not null]
+  "address" text [not null]
+  "city" text [not null]
+  "state" text
+  "country" text [not null]
+  "zip_code" text
+  "latitude" numeric(10,7)
+  "longitude" numeric(10,7)
+  "status" PropertyStatus [not null, default: 'DRAFT']
+  "created_at" timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" timestamptz [not null]
+
+  Indexes {
+    city [type: btree, name: "properties_city_idx"]
+    manager_id [type: btree, name: "properties_manager_id_idx"]
+    owner_id [type: btree, name: "properties_owner_id_idx"]
+    status [type: btree, name: "properties_status_idx"]
+  }
+}
+
+Table "buildings" {
+  "id" uuid [pk, not null]
+  "property_id" uuid [not null]
+  "name" text [not null]
+  "description" text
+  "created_at" timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" timestamptz [not null]
+
+  Indexes {
+    (property_id, name) [type: btree, unique, name: "buildings_property_id_name_key"]
+    property_id [type: btree, name: "buildings_property_id_idx"]
+  }
+}
+
+Table "units" {
+  "id" uuid [pk, not null]
+  "building_id" uuid [not null]
+  "unit_number" text [not null]
+  "floor" int4
+  "bedrooms" int4 [not null, default: 0]
+  "bathrooms" int4 [not null, default: 0]
+  "status" UnitStatus [not null, default: 'AVAILABLE']
+  "created_at" timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" timestamptz [not null]
+
+  Indexes {
+    (building_id, unit_number) [type: btree, unique, name: "units_building_id_unit_number_key"]
+    building_id [type: btree, name: "units_building_id_idx"]
+    status [type: btree, name: "units_status_idx"]
+  }
+}
+
+Table "rooms" {
+  "id" uuid [pk, not null]
+  "unit_id" uuid [not null]
+  "room_number" text [not null]
+  "name" text
+  "room_type" RoomType [not null]
+  "monthly_rent" numeric(12,2) [not null]
+  "security_deposit" numeric(12,2) [not null, default: 0]
+  "status" RoomStatus [not null, default: 'AVAILABLE']
+  "created_at" timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" timestamptz [not null]
+
+  Indexes {
+    (unit_id, room_number) [type: btree, unique, name: "rooms_unit_id_room_number_key"]
+    status [type: btree, name: "rooms_status_idx"]
+    unit_id [type: btree, name: "rooms_unit_id_idx"]
+  }
+}
+
+Table "room_availability" {
+  "id" uuid [pk, not null]
+  "room_id" uuid [not null]
+  "available_from" timestamptz [not null]
+  "available_to" timestamptz
+  "status" AvailabilityStatus [not null, default: 'AVAILABLE']
+  "created_at" timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" timestamptz [not null]
+
+  Indexes {
+    available_from [type: btree, name: "room_availability_available_from_idx"]
+    available_to [type: btree, name: "room_availability_available_to_idx"]
+    room_id [type: btree, name: "room_availability_room_id_idx"]
+  }
+}
+
+Table "viewing_requests" {
+  "id" uuid [pk, not null]
+  "user_id" uuid [not null]
+  "property_id" uuid [not null]
+  "room_id" uuid
+  "requested_date" timestamptz [not null]
+  "requested_time" text
+  "message" text
+  "status" ViewingRequestStatus [not null, default: 'PENDING']
+  "created_at" timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" timestamptz [not null]
+
+  Indexes {
+    property_id [type: btree, name: "viewing_requests_property_id_idx"]
+    room_id [type: btree, name: "viewing_requests_room_id_idx"]
+    status [type: btree, name: "viewing_requests_status_idx"]
+    user_id [type: btree, name: "viewing_requests_user_id_idx"]
+  }
+}
+
+Table "applications" {
+  "id" uuid [pk, not null]
+  "user_id" uuid [not null]
+  "room_id" uuid [not null]
+  "viewing_request_id" uuid
+  "message" text
+  "status" ApplicationStatus [not null, default: 'PENDING']
+  "submitted_at" timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" timestamptz [not null]
+
+  Indexes {
+    room_id [type: btree, name: "applications_room_id_idx"]
+    status [type: btree, name: "applications_status_idx"]
+    user_id [type: btree, name: "applications_user_id_idx"]
+    viewing_request_id [type: btree, name: "applications_viewing_request_id_idx"]
+  }
+}
+
+Table "leases" {
+  "id" uuid [pk, not null]
+  "application_id" uuid [unique, not null]
+  "tenant_id" uuid [not null]
+  "room_id" uuid [unique, not null]
+  "start_date" timestamptz [not null]
+  "end_date" timestamptz
+  "monthly_rent" numeric(12,2) [not null]
+  "security_deposit" numeric(12,2) [not null, default: 0]
+  "status" LeaseStatus [not null, default: 'PENDING']
+  "created_at" timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" timestamptz [not null]
+
+  Indexes {
+    room_id [type: btree, name: "leases_room_id_idx"]
+    (start_date, end_date) [type: btree, name: "leases_start_date_end_date_idx"]
+    status [type: btree, name: "leases_status_idx"]
+    tenant_id [type: btree, name: "leases_tenant_id_idx"]
+  }
+}
+
+Table "roommate_profiles" {
+  "id" uuid [pk, not null]
+  "user_id" uuid [unique, not null]
+  "bio" text
+  "occupation" text
+  "budget_min" numeric(12,2)
+  "budget_max" numeric(12,2)
+  "preferred_location" text
+  "move_in_date" timestamptz
+  "smoking" bool [not null, default: false]
+  "pets" bool [not null, default: false]
+  "gender_preference" text
+  "created_at" timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" timestamptz [not null]
+
+  Indexes {
+    preferred_location [type: btree, name: "roommate_profiles_preferred_location_idx"]
+  }
+}
+
+Table "preferences" {
+  "id" uuid [pk, not null]
+  "name" text [unique, not null]
+  "type" text
+  "created_at" timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table "user_preferences" {
+  "user_id" uuid [not null]
+  "preference_id" uuid [not null]
+  "value" text
+  "created_at" timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (user_id, preference_id) [pk, type: btree, name: "user_preferences_pkey"]
+    preference_id [type: btree, name: "user_preferences_preference_id_idx"]
+  }
+}
+
+Table "users" {
+  "id" uuid [pk, not null]
+  "name" text [not null]
+  "email" text [unique, not null]
+  "password" text [not null]
+  "phone" text
+  "avatar" text
+  "created_at" timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" timestamptz [not null]
+}
+
+Table "roles" {
+  "id" uuid [pk, not null]
+  "name" text [unique, not null]
+  "created_at" timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table "user_roles" {
+  "user_id" uuid [not null]
+  "role_id" uuid [not null]
+  "created_at" timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (user_id, role_id) [pk, type: btree, name: "user_roles_pkey"]
+    role_id [type: btree, name: "user_roles_role_id_idx"]
+  }
+}
+
+Ref "applications_room_id_fkey":"rooms"."id" <? "applications"."room_id" [update: cascade, delete: restrict]
+
+Ref "applications_user_id_fkey":"users"."id" <? "applications"."user_id" [update: cascade, delete: restrict]
+
+Ref "applications_viewing_request_id_fkey":"viewing_requests"."id" ?<? "applications"."viewing_request_id" [update: cascade, delete: set null]
+
+Ref "buildings_property_id_fkey":"properties"."id" <? "buildings"."property_id" [update: cascade, delete: cascade]
+
+Ref "leases_application_id_fkey":"applications"."id" <? "leases"."application_id" [update: cascade, delete: restrict]
+
+Ref "leases_room_id_fkey":"rooms"."id" <? "leases"."room_id" [update: cascade, delete: restrict]
+
+Ref "leases_tenant_id_fkey":"users"."id" <? "leases"."tenant_id" [update: cascade, delete: restrict]
+
+Ref "maintenance_requests_assigned_to_fkey":"users"."id" ?<? "maintenance_requests"."assigned_to" [update: cascade, delete: set null]
+
+Ref "maintenance_requests_property_id_fkey":"properties"."id" <? "maintenance_requests"."property_id" [update: cascade, delete: cascade]
+
+Ref "maintenance_requests_room_id_fkey":"rooms"."id" ?<? "maintenance_requests"."room_id" [update: cascade, delete: set null]
+
+Ref "maintenance_requests_tenant_id_fkey":"users"."id" <? "maintenance_requests"."tenant_id" [update: cascade, delete: restrict]
+
+Ref "properties_manager_id_fkey":"users"."id" ?<? "properties"."manager_id" [update: cascade, delete: set null]
+
+Ref "properties_owner_id_fkey":"users"."id" <? "properties"."owner_id" [update: cascade, delete: restrict]
+
+Ref "rent_payments_lease_id_fkey":"leases"."id" <? "rent_payments"."lease_id" [update: cascade, delete: restrict]
+
+Ref "rent_payments_tenant_id_fkey":"users"."id" <? "rent_payments"."tenant_id" [update: cascade, delete: restrict]
+
+Ref "room_availability_room_id_fkey":"rooms"."id" <? "room_availability"."room_id" [update: cascade, delete: cascade]
+
+Ref "roommate_profiles_user_id_fkey":"users"."id" <? "roommate_profiles"."user_id" [update: cascade, delete: cascade]
+
+Ref "rooms_unit_id_fkey":"units"."id" <? "rooms"."unit_id" [update: cascade, delete: cascade]
+
+Ref "units_building_id_fkey":"buildings"."id" <? "units"."building_id" [update: cascade, delete: cascade]
+
+Ref "user_preferences_preference_id_fkey":"preferences"."id" <? "user_preferences"."preference_id" [update: cascade, delete: cascade]
+
+Ref "user_preferences_user_id_fkey":"users"."id" <? "user_preferences"."user_id" [update: cascade, delete: cascade]
+
+Ref "user_roles_role_id_fkey":"roles"."id" <? "user_roles"."role_id" [update: cascade, delete: cascade]
+
+Ref "user_roles_user_id_fkey":"users"."id" <? "user_roles"."user_id" [update: cascade, delete: cascade]
+
+Ref "utility_bill_splits_bill_id_fkey":"utility_bills"."id" <? "utility_bill_splits"."bill_id" [update: cascade, delete: cascade]
+
+Ref "utility_bill_splits_tenant_id_fkey":"users"."id" <? "utility_bill_splits"."tenant_id" [update: cascade, delete: restrict]
+
+Ref "utility_bills_property_id_fkey":"properties"."id" <? "utility_bills"."property_id" [update: cascade, delete: restrict]
+
+Ref "utility_bills_unit_id_fkey":"units"."id" ?<? "utility_bills"."unit_id" [update: cascade, delete: set null]
+
+Ref "viewing_requests_property_id_fkey":"properties"."id" <? "viewing_requests"."property_id" [update: cascade, delete: cascade]
+
+Ref "viewing_requests_room_id_fkey":"rooms"."id" ?<? "viewing_requests"."room_id" [update: cascade, delete: set null]
+
+Ref "viewing_requests_user_id_fkey":"users"."id" <? "viewing_requests"."user_id" [update: cascade, delete: cascade]
+
+Table "prisma_contract"."marker" {
+  "space" text [pk, not null, default: 'app']
+  "core_hash" text [not null]
+  "profile_hash" text [not null]
+  "contract_json" jsonb
+  "canonical_version" int4
+  "updated_at" timestamptz [not null, default: `now()`]
+  "app_tag" text
+  "meta" jsonb [not null, default: `{}`]
+  "invariants" "text[]" [not null, default: 'ARRAY[text[]']
+}
+
+Table "prisma_contract"."ledger" {
+  "id" int8 [pk, not null, increment]
+  "created_at" timestamptz [not null, default: `now()`]
+  "space" text [not null]
+  "migration_name" text [not null]
+  "migration_hash" text [not null]
+  "origin_core_hash" text
+  "origin_profile_hash" text
+  "destination_core_hash" text [not null]
+  "destination_profile_hash" text
+  "operations" jsonb [not null]
+}
+
+Table "prisma_contract"."contract" {
+  "core_hash" text [pk, not null]
+  "created_at" timestamptz [not null, default: `now()`]
+  "contract_json" jsonb [not null]
+}
