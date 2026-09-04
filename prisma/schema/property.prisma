@@ -18,8 +18,12 @@ model Property {
   status       PropertyStatus @default(DRAFT)
   createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?      @map("deleted_at") @db.Timestamptz(6)
 
   // Financial/rental history must survive an owner deletion -> Restrict.
+  // manager_id is the user ASSIGNED to manage this property. It is deliberately
+  // not backed by a role: the primary RBAC roles are only OWNER/TENANT/ADMIN.
+  // Resource-level authorization for this link is Step 3 work.
   owner   User  @relation("PropertyOwner", fields: [ownerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   manager User? @relation("PropertyManager", fields: [managerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
@@ -32,6 +36,7 @@ model Property {
   @@index([managerId])
   @@index([city])
   @@index([status])
+  @@index([deletedAt])
   @@map("properties")
 }
 
@@ -44,7 +49,8 @@ model Building {
   name        String
   description String?
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   units    Unit[]
@@ -67,6 +73,7 @@ model Unit {
   status     UnitStatus @default(AVAILABLE)
   createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt  DateTime?  @map("deleted_at") @db.Timestamptz(6)
 
   building     Building      @relation(fields: [buildingId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   rooms        Room[]
@@ -92,6 +99,7 @@ model Room {
   status          RoomStatus @default(AVAILABLE)
   createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?  @map("deleted_at") @db.Timestamptz(6)
 
   unit                Unit                 @relation(fields: [unitId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   availability        RoomAvailability[]
@@ -117,6 +125,7 @@ model RoomAvailability {
   status        AvailabilityStatus @default(AVAILABLE)
   createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime?          @map("deleted_at") @db.Timestamptz(6)
 
   room Room @relation(fields: [roomId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 

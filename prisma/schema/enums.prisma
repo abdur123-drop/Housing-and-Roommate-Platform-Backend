@@ -69,9 +69,22 @@ enum LeaseStatus {
 
 enum RentPaymentStatus {
   PENDING
+  // Handed off to the payment provider; awaiting the webhook that settles it.
+  PROCESSING
   PAID
   LATE
   FAILED
+  REFUNDED
+  // Voided before settlement. Financial rows are never hard- or soft-deleted;
+  // this is how a payment row is retired while preserving history.
+  CANCELLED
+}
+
+/// Real payment providers only - there is deliberately no MANUAL/FAKE member.
+enum PaymentProvider {
+  STRIPE
+  BKASH
+  SSLCOMMERZ
 }
 
 enum PaymentMethod {

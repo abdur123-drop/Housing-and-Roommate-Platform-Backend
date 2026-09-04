@@ -8,10 +8,12 @@ model User {
   password  String
   phone     String?
   avatar    String?
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   userRoles           UserRole[]
+  auditLogs           AuditLog[]
   ownedProperties     Property[]           @relation("PropertyOwner")
   managedProperties   Property[]           @relation("PropertyManager")
   roommateProfile     RoommateProfile?
@@ -24,11 +26,17 @@ model User {
   maintenanceRequests MaintenanceRequest[] @relation("MaintenanceTenant")
   assignedMaintenance MaintenanceRequest[] @relation("MaintenanceAssignee")
 
+  @@index([deletedAt])
   @@map("users")
 }
 
 // ---------------------------------------------------------------------------
-// 2. roles  (OWNER | TENANT | ROOMMATE | PROPERTY_MANAGER | ADMIN)
+// 2. roles  -- exactly three primary RBAC roles: OWNER | TENANT | ADMIN
+//
+// A roommate is a TENANT that also has a roommate_profiles row; it is NOT a
+// role. A property manager is the user in properties.manager_id for a specific
+// property; it is NOT a role either. Both are enforced at the database level by
+// the roles_name_allowed CHECK constraint added in the 20260904190000 migration.
 // ---------------------------------------------------------------------------
 model Role {
   id        String   @id @default(uuid()) @db.Uuid

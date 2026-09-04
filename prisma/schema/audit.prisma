@@ -1,0 +1,29 @@
+// ---------------------------------------------------------------------------
+// 19. audit_logs
+//
+// Append-only record of important system actions. Deliberately has NO
+// deleted_at and NO updated_at: audit rows are immutable once written.
+//
+// actor_user_id is nullable so system/cron/webhook-generated actions can be
+// recorded with no actor, and uses SET NULL so removing a user never destroys
+// the audit trail of what that user did.
+// ---------------------------------------------------------------------------
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  oldValue    Json?    @map("old_value") @db.JsonB
+  newValue    Json?    @map("new_value") @db.JsonB
+  metadata    Json?    @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([actorUserId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

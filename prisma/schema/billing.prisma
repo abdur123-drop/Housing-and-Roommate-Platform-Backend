@@ -1,17 +1,43 @@
 // ---------------------------------------------------------------------------
 // 15. rent_payments
 // ---------------------------------------------------------------------------
+// A rent payment row is financial history: it is never hard-deleted and has no
+// deleted_at. Retire one by moving it to CANCELLED / REFUNDED instead.
 model RentPayment {
   id            String            @id @default(uuid()) @db.Uuid
   leaseId       String            @map("lease_id") @db.Uuid
   tenantId      String            @map("tenant_id") @db.Uuid
   amount        Decimal           @db.Decimal(12, 2)
+  currency      String            @default("USD") @db.Char(3)
   dueDate       DateTime          @map("due_date") @db.Timestamptz(6)
   paidAt        DateTime?         @map("paid_at") @db.Timestamptz(6)
   status        RentPaymentStatus @default(PENDING)
   paymentMethod PaymentMethod?    @map("payment_method")
   transactionId String?           @unique @map("transaction_id")
-  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // ---- Real payment-provider integration (Stripe / bKash / SSLCommerz) ----
+  // All nullable: a row exists from the moment rent is due, long before any
+  // provider interaction happens.
+  provider           PaymentProvider?
+  /// Provider's authoritative payment id (e.g. Stripe PaymentIntent `pi_...`).
+  /// UNIQUE so a replayed webhook cannot create or settle a second row.
+  providerPaymentId  String?          @unique @map("provider_payment_id")
+  /// Checkout/session id handed to the client (e.g. Stripe `cs_...`).
+  providerSessionId  String?          @unique @map("provider_session_id")
+  providerCustomerId String?          @map("provider_customer_id")
+  /// Raw provider-side status string, kept verbatim for debugging/reconciliation.
+  providerStatus     String?          @map("provider_status")
+  /// Last full webhook/API payload received for this payment.
+  gatewayResponse    Json?            @map("gateway_response") @db.JsonB
+  failureReason      String?          @map("failure_reason")
+
+  // ---- Refunds ----
+  refundedAmount Decimal?  @map("refunded_amount") @db.Decimal(12, 2)
+  refundReason   String?   @map("refund_reason")
+  refundedAt     DateTime? @map("refunded_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   lease  Lease @relation(fields: [leaseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   tenant User  @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
@@ -20,6 +46,7 @@ model RentPayment {
   @@index([tenantId])
   @@index([status])
   @@index([dueDate])
+  @@index([provider])
   @@map("rent_payments")
 }
 
