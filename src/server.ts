@@ -1,5 +1,5 @@
 import app from "./app";
-import config from "./app/config";
+import config, { validateAuthConfig } from "./app/config";
 import { prisma } from "./app/lib/prisma";
 import { seedAdmin, seedRoles } from "./app/utils/seed";
 
@@ -7,6 +7,10 @@ const PORT = config.port ?? 5000;
 
 const main = async () => {
 	try {
+		// Fail fast and loudly on missing/weak JWT secrets rather than booting
+		// into an app where every login returns a confusing 401.
+		validateAuthConfig();
+
 		await prisma.$connect();
 		console.log("Connected to the database successfully.");
 

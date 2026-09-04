@@ -19,6 +19,7 @@ model User {
 
   userRoles           UserRole[]
   auditLogs           AuditLog[]
+  refreshTokens       RefreshToken[]
   ownedProperties     Property[]           @relation("PropertyOwner")
   managedProperties   Property[]           @relation("PropertyManager")
   roommateProfile     RoommateProfile?

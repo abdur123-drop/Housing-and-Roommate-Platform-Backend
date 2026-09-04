@@ -1,8 +1,12 @@
 import type { NextFunction, Request, Response } from "express";
 import httpStatus from "http-status";
+// jsonwebtoken is CommonJS: its error classes are NOT available as ESM named
+// exports, so they must be reached through the default export.
+import jwt from "jsonwebtoken";
+import { ZodError } from "zod";
 import { Prisma } from "../../generated/prisma/client";
 import config from "../config";
-import { AppError } from "../utils/AppError";
+import { AppError, type TErrorSource } from "../utils/AppError";
 
 export const globalErrorHandler = async (
 	err: any,
@@ -17,14 +21,33 @@ export const globalErrorHandler = async (
 	let statusCode: number = httpStatus.INTERNAL_SERVER_ERROR;
 	let errorMessage = err.message || "Internal Server Error";
 	const errorName = err.name || "Internal Server Error";
+	let errorSources: TErrorSource[] = [];
 
-	if (err instanceof Prisma.PrismaClientValidationError) {
+	if (err instanceof ZodError) {
+		statusCode = httpStatus.BAD_REQUEST;
+		errorMessage = "Validation failed";
+		errorSources = err.issues.map((issue) => ({
+			path: issue.path.join(".") || "body",
+			message: issue.message,
+		}));
+	} else if (err instanceof jwt.TokenExpiredError) {
+		statusCode = httpStatus.UNAUTHORIZED;
+		errorMessage = "Your session has expired. Please log in again.";
+	} else if (
+		err instanceof jwt.NotBeforeError ||
+		err instanceof jwt.JsonWebTokenError
+	) {
+		// Covers malformed, wrong-signature and not-yet-valid tokens alike. The
+		// client is told nothing about which - that detail only helps an attacker.
+		statusCode = httpStatus.UNAUTHORIZED;
+		errorMessage = "Invalid authentication token.";
+	} else if (err instanceof Prisma.PrismaClientValidationError) {
 		statusCode = httpStatus.BAD_REQUEST;
 		errorMessage = "You have provided incorrect field type or missing fields";
 	} else if (err instanceof Prisma.PrismaClientKnownRequestError) {
 		if (err.code === "P2002") {
-			statusCode = httpStatus.BAD_REQUEST;
-			errorMessage = "Duplicate Key Error";
+			statusCode = httpStatus.CONFLICT;
+			errorMessage = "That value is already in use.";
 		} else if (err.code === "P2003") {
 			statusCode = httpStatus.BAD_REQUEST;
 			errorMessage = "Foreign key constraint failed";
@@ -48,20 +71,23 @@ export const globalErrorHandler = async (
 	} else if (err instanceof AppError) {
 		errorMessage = err.message;
 		statusCode = err.statusCode;
+		errorSources = err.errorSources ?? [];
 	} else if (err instanceof Error) {
 		errorMessage = err.message;
 	}
 
+	const isDev = config.node_env === "development";
+	// A 5xx is the only case where the message may describe internals, so it is
+	// the only one we mask in production.
+	const isServerError = statusCode >= 500;
+
 	res.status(statusCode).json({
 		success: false,
-		statusCode: statusCode || httpStatus.INTERNAL_SERVER_ERROR,
-		name:
-			config.node_env === "development" ? errorName : "Internal Server Error",
+		statusCode,
+		name: isDev ? errorName : undefined,
 		message:
-			config.node_env === "development"
-				? errorMessage
-				: "Internal Server Error",
-		error: config.node_env === "development" ? err : undefined,
-		stack: config.node_env === "development" ? err.stack : undefined,
+			isServerError && !isDev ? "Internal Server Error" : errorMessage,
+		errors: errorSources,
+		stack: isDev ? err.stack : undefined,
 	});
 };

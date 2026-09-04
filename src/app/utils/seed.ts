@@ -1,7 +1,7 @@
-import bcrypt from "bcryptjs";
 import { APP_ROLES, AppRole } from "../constants/roles";
 import config from "../config";
 import { prisma } from "../lib/prisma";
+import { hashPassword } from "./password";
 
 /**
  * Seeds the five platform roles. Idempotent - safe to run on every boot.
@@ -24,7 +24,9 @@ export const seedRoles = async () => {
  */
 export const seedAdmin = async () => {
 	const name = config.admin_name;
-	const email = config.admin_email;
+	// Normalized exactly as registration/login normalize it, so the seeded admin
+	// can actually log in with the address as typed.
+	const email = config.admin_email?.trim().toLowerCase();
 	const password = config.admin_password;
 
 	if (!name || !email || !password) {
@@ -47,10 +49,7 @@ export const seedAdmin = async () => {
 		where: { name: AppRole.ADMIN },
 	});
 
-	const hashedPassword = await bcrypt.hash(
-		password,
-		Number(config.bcrypt_salt_rounds ?? 10),
-	);
+	const hashedPassword = await hashPassword(password);
 
 	const admin = await prisma.user.create({
 		data: {
