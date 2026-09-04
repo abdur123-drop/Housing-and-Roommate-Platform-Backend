@@ -34,6 +34,11 @@ model Property {
 
   @@index([ownerId])
   @@index([managerId])
+  // Partial unique `properties_owner_id_title_active_key`:
+  // UNIQUE (owner_id, title) WHERE deleted_at IS NULL -- one owner cannot list
+  // the same title twice, but different owners may reuse a title. Titles are
+  // deliberately NOT globally unique.
+  // Partial composite `properties_status_city_active_idx` backs public search.
   @@index([city])
   @@index([status])
   @@index([deletedAt])
@@ -55,7 +60,9 @@ model Building {
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   units    Unit[]
 
-  @@unique([propertyId, name])
+  // Partial unique `buildings_property_id_name_active_key`:
+  // UNIQUE (property_id, name) WHERE deleted_at IS NULL.
+  // Scoped to the property -- two properties may both have a "Block A".
   @@index([propertyId])
   @@map("buildings")
 }
@@ -79,7 +86,9 @@ model Unit {
   rooms        Room[]
   utilityBills UtilityBill[]
 
-  @@unique([buildingId, unitNumber])
+  // Partial unique `units_building_id_unit_number_active_key`:
+  // UNIQUE (building_id, unit_number) WHERE deleted_at IS NULL.
+  // Scoped to the building -- "A-101" may exist in many buildings.
   @@index([buildingId])
   @@index([status])
   @@map("units")
@@ -108,8 +117,12 @@ model Room {
   leases              Lease[]
   maintenanceRequests MaintenanceRequest[]
 
-  @@unique([unitId, roomNumber])
-  @@index([unitId])
+  // Partial unique `rooms_unit_id_room_number_active_key`:
+  // UNIQUE (unit_id, room_number) WHERE deleted_at IS NULL.
+  // Scoped to the unit -- room "101" may exist in many units.
+  // (unit_id, status) replaces the plain unit_id index: it serves both
+  // "rooms in this unit" and "available rooms in this unit".
+  @@index([unitId, status])
   @@index([status])
   @@map("rooms")
 }
@@ -129,7 +142,10 @@ model RoomAvailability {
 
   room Room @relation(fields: [roomId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
-  @@index([roomId])
+  // (room_id, status, available_from) is the availability-search access path and
+  // subsumes the plain room_id index. A CHECK guarantees available_from <=
+  // available_to whenever available_to is set.
+  @@index([roomId, status, availableFrom])
   @@index([availableFrom])
   @@index([availableTo])
   @@map("room_availability")

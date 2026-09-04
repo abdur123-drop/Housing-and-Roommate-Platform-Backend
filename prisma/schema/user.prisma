@@ -4,7 +4,12 @@
 model User {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
-  email     String   @unique
+  // Uniqueness is enforced by the PARTIAL unique index
+  // `users_email_active_key` -- UNIQUE (email) WHERE deleted_at IS NULL --
+  // so a soft-deleted account releases its email for re-registration.
+  // Prisma cannot express partial indexes, hence no @unique here: look users up
+  // with findFirst({ where: { email, deletedAt: null } }), never findUnique.
+  email     String
   password  String
   phone     String?
   avatar    String?

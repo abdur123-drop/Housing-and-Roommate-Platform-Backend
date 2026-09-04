@@ -14,8 +14,12 @@ model ViewingRequest {
   updatedAt     DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt     DateTime?            @map("deleted_at") @db.Timestamptz(6)
 
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  // A viewing request is workflow HISTORY, so the user and property links are
+  // RESTRICT, not CASCADE: hard-deleting either must be blocked rather than
+  // silently erasing the record of who asked to view what. room_id is optional
+  // and therefore SET NULL, which preserves the request itself.
+  user     User     @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   room     Room?    @relation(fields: [roomId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   applications Application[]
@@ -48,8 +52,11 @@ model Application {
 
   lease Lease?
 
+  // applications has no property_id column: a room already resolves to its
+  // property via unit -> building -> property. (room_id, status) is the real
+  // access path and subsumes the plain room_id index.
   @@index([userId])
-  @@index([roomId])
+  @@index([roomId, status])
   @@index([status])
   @@index([viewingRequestId])
   @@map("applications")
@@ -81,8 +88,11 @@ model Lease {
   // NOTE: a partial unique index -- UNIQUE (room_id) WHERE status = 'ACTIVE' --
   // is added by hand in the migration SQL. Prisma cannot express partial
   // indexes, and it is what guarantees a room never has two ACTIVE leases.
+  // (room_id, status) subsumes the plain room_id index and backs the
+  // "does this room already have an ACTIVE lease?" check.
+  // A CHECK guarantees start_date <= end_date whenever end_date is set.
   @@index([tenantId])
-  @@index([roomId])
+  @@index([roomId, status])
   @@index([status])
   @@index([startDate, endDate])
   @@map("leases")

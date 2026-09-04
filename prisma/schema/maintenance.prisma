@@ -16,13 +16,16 @@ model MaintenanceRequest {
   resolvedAt  DateTime?           @map("resolved_at") @db.Timestamptz(6)
   deletedAt   DateTime?           @map("deleted_at") @db.Timestamptz(6)
 
+  // Maintenance is operational HISTORY. tenant and property are RESTRICT so a
+  // hard delete cannot erase it; the optional room and assignee are SET NULL so
+  // reassigning or removing a worker keeps the record intact.
   tenant   User     @relation("MaintenanceTenant", fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   room     Room?    @relation(fields: [roomId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   assignee User?    @relation("MaintenanceAssignee", fields: [assignedTo], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   @@index([tenantId])
-  @@index([propertyId])
+  @@index([propertyId, status])
   @@index([roomId])
   @@index([assignedTo])
   @@index([status])

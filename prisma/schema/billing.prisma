@@ -37,13 +37,17 @@ model RentPayment {
   refundedAt     DateTime? @map("refunded_at") @db.Timestamptz(6)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  // Both RESTRICT: a payment can never exist without its lease and tenant, and
+  // neither parent may be hard-deleted out from under financial history.
   lease  Lease @relation(fields: [leaseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   tenant User  @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
+  // (tenant_id, status, due_date) backs the tenant payment dashboard
+  // ("my unpaid rent, soonest first") and subsumes the plain tenant_id index.
   @@index([leaseId])
-  @@index([tenantId])
+  @@index([tenantId, status, dueDate])
   @@index([status])
   @@index([dueDate])
   @@index([provider])
@@ -90,11 +94,14 @@ model UtilityBillSplit {
   paidAt    DateTime?          @map("paid_at") @db.Timestamptz(6)
   createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  bill   UtilityBill @relation(fields: [billId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  // RESTRICT, not CASCADE: a split is a tenant's financial obligation, so a bill
+  // that has already been split cannot be hard-deleted out from under it.
+  // The (bill_id, tenant_id) unique both prevents orphan/duplicate splits and
+  // serves bill_id lookups, so no separate bill_id index is needed.
+  bill   UtilityBill @relation(fields: [billId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   tenant User        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([billId, tenantId])
-  @@index([billId])
   @@index([tenantId])
   @@index([status])
   @@map("utility_bill_splits")

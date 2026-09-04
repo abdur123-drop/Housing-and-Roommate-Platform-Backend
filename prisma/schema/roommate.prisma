@@ -17,6 +17,9 @@ model RoommateProfile {
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
 
+  // CASCADE is correct here: a roommate profile has no meaning without its user.
+  // NOTE: user_id stays FULLY unique (Prisma requires it for the 1:1 relation),
+  // so a soft-deleted profile must be RESTORED rather than re-created.
   user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@index([preferredLocation])
@@ -28,7 +31,9 @@ model RoommateProfile {
 // ---------------------------------------------------------------------------
 model Preference {
   id        String    @id @default(uuid()) @db.Uuid
-  name      String    @unique
+  // Partial unique index `preferences_name_active_key`: UNIQUE (name)
+  // WHERE deleted_at IS NULL. A retired preference frees its name for reuse.
+  name      String
   type      String?
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)

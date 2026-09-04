@@ -32,7 +32,11 @@ export const seedAdmin = async () => {
 		return;
 	}
 
-	const existing = await prisma.user.findUnique({ where: { email } });
+	// findFirst, not findUnique: users.email is unique only among rows where
+	// deleted_at IS NULL (partial index `users_email_active_key`).
+	const existing = await prisma.user.findFirst({
+		where: { email, deletedAt: null },
+	});
 
 	if (existing) {
 		console.log("Admin Already Exists!");
