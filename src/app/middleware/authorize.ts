@@ -18,7 +18,7 @@ export const resetAuthorizationPrismaForTest = (): void => {
 	authorizationPrisma = prisma;
 };
 
-type PropertyAuthorizationMode = "owner" | "manager" | "access";
+export type PropertyAuthorizationMode = "owner" | "manager" | "access";
 type PropertyRelationship = "admin" | "owner" | "manager";
 
 type PropertyAccessRecord = {
