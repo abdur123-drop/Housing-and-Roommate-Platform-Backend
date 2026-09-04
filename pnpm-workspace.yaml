@@ -1,0 +1,8 @@
+allowBuilds:
+  esbuild: true
+  msgpackr-extract: true
+  workerd: true
+minimumReleaseAgeExclude:
+  - "@prisma/*"
+overrides:
+  effect: "4.0.0-rc.112"
