@@ -10,8 +10,11 @@ import config from "./app/config";
 import { globalErrorHandler } from "./app/middleware/globalErrorHandler";
 import { notFound } from "./app/middleware/notFound";
 import { AuthRoutes } from "./app/module/auth/auth.route";
+import { BuildingRoutes } from "./app/module/building/building.route";
 import { AuthorizationTestRoutes } from "./app/module/internal/authorization-test.route";
 import { PropertyRoutes } from "./app/module/property/property.route";
+import { RoomRoutes } from "./app/module/room/room.route";
+import { UnitRoutes } from "./app/module/unit/unit.route";
 
 const app: Application = express();
 
@@ -32,6 +35,9 @@ app.use(cookieParser());
 
 app.use("/api/v1/auth", AuthRoutes);
 app.use("/api/v1/properties", PropertyRoutes);
+app.use("/api/v1", BuildingRoutes);
+app.use("/api/v1", UnitRoutes);
+app.use("/api/v1", RoomRoutes);
 if (config.node_env === "test") {
 	app.use("/api/v1/__authz", AuthorizationTestRoutes);
 }
