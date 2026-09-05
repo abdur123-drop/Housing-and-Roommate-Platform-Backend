@@ -24,6 +24,7 @@ import {
 import { RoommateRoutes } from "./app/module/roommate/roommate.route";
 import { UnitRoutes } from "./app/module/unit/unit.route";
 import { ViewingRequestRoutes } from "./app/module/viewingRequest/viewingRequest.route";
+import { UtilityBillRoutes } from "./app/module/utilityBill/utilityBill.route";
 
 const app: Application = express();
 
@@ -59,6 +60,7 @@ app.use("/api/v1", PaymentRoutes);
 app.use("/api/v1", RoommateRoutes);
 app.use("/api/v1", ViewingRequestRoutes);
 app.use("/api/v1", ApplicationRoutes);
+app.use("/api/v1", UtilityBillRoutes);
 if (config.node_env === "test") {
 	app.use("/api/v1/__authz", AuthorizationTestRoutes);
 }

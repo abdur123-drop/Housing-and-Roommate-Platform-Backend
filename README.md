@@ -291,6 +291,47 @@ raw gateway payloads are retained only in the existing payment gateway-response
 field for reconciliation. Payment success does not change lease status and does
 not create a booking or reservation.
 
+## Step 15 Utility Bills
+
+Utility bills are property- or unit-scoped financial records. They use the
+existing fixed-amount `UtilityBillSplit` model: percentage splits are not
+implemented. Bills use BDT, positive amounts with two-decimal precision,
+`billingPeriodStart < billingPeriodEnd`, and the existing utility type and
+status enums. Bill creation defaults status to `PENDING`; clients cannot set
+paid state or payment timestamps.
+
+Endpoints:
+
+- `POST /api/v1/utility-bills` (owner, assigned manager, or admin)
+- `GET /api/v1/utility-bills/my-bills` (tenant split visibility)
+- `GET /api/v1/utility-bills/managed` (owner, assigned manager, or admin)
+- `GET /api/v1/utility-bills/:id` (authorized tenant or property operator)
+- `GET /api/v1/utility-bills/:id/splits`
+- `POST /api/v1/utility-bills/:id/splits` (owner, assigned manager, or admin)
+
+For a unit-scoped bill, a split tenant must have an active lease for that unit.
+Property-scoped bills may be assigned to active tenants by an authorized
+operator. Tenants see only bills with their own active split and only their own
+split detail; operators see the authorized property's bill and split records.
+Owner and manager authorization is resolved through the property relation, not
+through a manager role. Admin access is explicit.
+
+Split allocation is partial: the active assigned total may be less than or
+equal to the bill total. Every split amount is positive and fixed to two
+decimal places. The existing unique `(bill_id, tenant_id)` constraint prevents
+duplicate tenant splits. Each split request runs inside a transaction with a
+bill-scoped PostgreSQL advisory lock, reloads the bill and current aggregate,
+and validates the remaining amount before insertion. Therefore concurrent
+requests for one bill cannot over-allocate it, while different bills remain
+independent. No split action automatically charges Stripe; Step 14 payment
+behavior is unchanged.
+
+Bills and splits are financial history in the existing schema and have no
+soft-delete fields. They are not physically deleted, and queries exclude
+deleted parent properties, units, buildings, rooms, leases, or tenants where
+those relationships apply. DTOs omit owner/manager authorization metadata,
+deleted fields, audit data, and payment secrets.
+
 ### Conventions
 
 - UUID primary keys (`@db.Uuid`), snake_case tables and columns via `@map` / `@@map`
