@@ -216,6 +216,43 @@ Sorting is whitelisted and deterministic. Normal queries exclude soft-deleted
 applications and deleted parent resources, and application DTOs select only
 the fields needed by the authenticated workflow.
 
+## Step 13 Leases
+
+A lease represents an actual occupancy agreement created from an approved
+application. Application approval does not create a lease, and a lease is not a
+payment, booking, reservation, or notification workflow.
+
+Endpoints:
+
+- `POST /api/v1/leases` (property owner, assigned manager, or admin)
+- `GET /api/v1/leases/my-leases` (authenticated tenant's leases)
+- `GET /api/v1/leases/managed` (owner, assigned manager, or admin)
+- `GET /api/v1/leases/:id` (owning tenant, property owner, assigned manager, or admin)
+- `POST /api/v1/leases/:id/terminate` (property owner, assigned manager, or admin)
+
+Lease creation accepts only `applicationId`, `startDate`, and an optional
+`endDate`. The server derives the tenant, room, property, rent, and deposit from
+the approved application and its room hierarchy. The application, tenant, room,
+unit, building, and property must be active; the room must still be available.
+Dates use the existing inclusive database check (`startDate <= endDate`), while
+the API requires `startDate < endDate` when an end date is supplied.
+
+New leases are created as `ACTIVE`. `ACTIVE -> TERMINATED` is the only explicit
+lifecycle action currently exposed. Historical `EXPIRED` and `TERMINATED`
+records remain available to authorized users, while soft-deleted leases and
+deleted parent resources are excluded from normal access.
+
+Double booking is prevented by defense in depth. Creation runs in a Prisma
+interactive transaction, acquires a room-scoped PostgreSQL advisory transaction
+lock using `hashtextextended(roomId, 0)`, re-checks for a live `ACTIVE` lease,
+and then creates the lease. The existing partial unique index
+`leases_room_id_active_key` remains the database guarantee that only one active
+lease can exist for a room; any unique conflict is returned as `409 Conflict`.
+Different rooms do not share the lock. Lease listings support `page`, `limit`
+(maximum 100), `status`, `propertyId`, `roomId`, `tenantId` for managed queries,
+`from`, `to`, `sortBy`, and `sortOrder`. Sorting is whitelisted and pagination
+and filtering happen in the database.
+
 ### Conventions
 
 - UUID primary keys (`@db.Uuid`), snake_case tables and columns via `@map` / `@@map`

@@ -16,6 +16,7 @@ import { AuthorizationTestRoutes } from "./app/module/internal/authorization-tes
 import { PropertyRoutes } from "./app/module/property/property.route";
 import { RoomRoutes } from "./app/module/room/room.route";
 import { RoomAvailabilityRoutes } from "./app/module/roomAvailability/roomAvailability.route";
+import { LeaseRoutes } from "./app/module/lease/lease.route";
 import { RoommateRoutes } from "./app/module/roommate/roommate.route";
 import { UnitRoutes } from "./app/module/unit/unit.route";
 import { ViewingRequestRoutes } from "./app/module/viewingRequest/viewingRequest.route";
@@ -43,6 +44,7 @@ app.use("/api/v1", BuildingRoutes);
 app.use("/api/v1", UnitRoutes);
 app.use("/api/v1", RoomRoutes);
 app.use("/api/v1", RoomAvailabilityRoutes);
+app.use("/api/v1", LeaseRoutes);
 app.use("/api/v1", RoommateRoutes);
 app.use("/api/v1", ViewingRequestRoutes);
 app.use("/api/v1", ApplicationRoutes);
