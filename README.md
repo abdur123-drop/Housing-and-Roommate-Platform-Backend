@@ -332,6 +332,44 @@ deleted parent properties, units, buildings, rooms, leases, or tenants where
 those relationships apply. DTOs omit owner/manager authorization metadata,
 deleted fields, audit data, and payment secrets.
 
+## Step 16 Maintenance Requests
+
+Maintenance requests represent tenant-reported issues for an occupied room.
+Creation requires an active, non-deleted lease owned by the authenticated tenant
+for the requested room. The server derives `tenantId` from authentication and
+`propertyId` through `lease -> room -> unit -> building -> property`.
+
+Endpoints:
+
+- `POST /api/v1/maintenance-requests` (tenant with an eligible active lease)
+- `GET /api/v1/maintenance-requests/my-requests` (own requests)
+- `GET /api/v1/maintenance-requests/managed` (owner, assigned manager, or admin)
+- `GET /api/v1/maintenance-requests/:id`
+- `PATCH /api/v1/maintenance-requests/:id` (safe fields only)
+- `POST /api/v1/maintenance-requests/:id/start`
+- `POST /api/v1/maintenance-requests/:id/resolve`
+- `POST /api/v1/maintenance-requests/:id/close`
+
+The existing priority enum is used: `LOW`, `MEDIUM`, `HIGH`, and `URGENT`.
+The existing schema has no category field, so categories were not invented.
+The lifecycle is server-controlled:
+
+```text
+OPEN -> IN_PROGRESS -> RESOLVED -> CLOSED
+```
+
+Only owners, assigned managers, and admins can perform lifecycle transitions.
+Resolving sets `resolvedAt` on the server. Tenants can edit safe descriptive
+fields only while their request is `OPEN`; they cannot change ownership,
+status, or `resolvedAt`. Every transition uses a conditional update on the
+expected current status, so stale concurrent actions return `409 Conflict`.
+
+Tenant lists and details are scoped to the authenticated tenant. Management
+queries scope through the actual property owner/manager relationship, and admin
+access is explicit. Normal queries exclude soft-deleted requests, tenants,
+rooms, units, buildings, and properties. Maintenance requests do not create
+payments, utility bills, notifications, work orders, or schedules.
+
 ### Conventions
 
 - UUID primary keys (`@db.Uuid`), snake_case tables and columns via `@map` / `@@map`
