@@ -14,6 +14,7 @@ import { BuildingRoutes } from "./app/module/building/building.route";
 import { AuthorizationTestRoutes } from "./app/module/internal/authorization-test.route";
 import { PropertyRoutes } from "./app/module/property/property.route";
 import { RoomRoutes } from "./app/module/room/room.route";
+import { RoomAvailabilityRoutes } from "./app/module/roomAvailability/roomAvailability.route";
 import { UnitRoutes } from "./app/module/unit/unit.route";
 
 const app: Application = express();
@@ -38,6 +39,7 @@ app.use("/api/v1/properties", PropertyRoutes);
 app.use("/api/v1", BuildingRoutes);
 app.use("/api/v1", UnitRoutes);
 app.use("/api/v1", RoomRoutes);
+app.use("/api/v1", RoomAvailabilityRoutes);
 if (config.node_env === "test") {
 	app.use("/api/v1/__authz", AuthorizationTestRoutes);
 }
