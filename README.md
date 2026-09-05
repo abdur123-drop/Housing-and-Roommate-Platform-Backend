@@ -253,6 +253,44 @@ Different rooms do not share the lock. Lease listings support `page`, `limit`
 `from`, `to`, `sortBy`, and `sortOrder`. Sorting is whitelisted and pagination
 and filtering happen in the database.
 
+## Step 14 Stripe Payments
+
+Rent payments use Stripe PaymentIntents and BDT only. The tenant starts a payment
+with `POST /api/v1/payments`, providing only `leaseId` and an
+`Idempotency-Key` header. The server verifies the authenticated tenant owns an
+active lease, derives the amount from `lease.monthlyRent`, stores a local
+`PROCESSING` payment, and sends the amount to Stripe as integer poisha (`BDT *
+100`). The response contains the local payment DTO and Stripe `clientSecret`
+only for that tenant.
+
+Endpoints:
+
+- `POST /api/v1/payments`
+- `GET /api/v1/payments/my-payments`
+- `GET /api/v1/payments/managed`
+- `GET /api/v1/payments/:id`
+- `POST /api/v1/payments/webhook/stripe` (public Stripe webhook)
+
+Payment lists support `page`, `limit` (maximum 100), `status`, `sortBy`, and
+`sortOrder`. Tenant queries are always scoped to the authenticated tenant.
+Owner and assigned-manager queries resolve authorization through
+`lease -> room -> unit -> building -> property`; admin access is explicit.
+
+The webhook route is mounted before JSON parsing and receives the raw request
+body. Stripe signatures are verified with `STRIPE_WEBHOOK_SECRET`; only signed
+`payment_intent.succeeded` and `payment_intent.payment_failed` events are
+processed. The local payment ID, Stripe PaymentIntent ID, amount, and `bdt`
+currency are validated before synchronization. Webhook event IDs are stored in
+the unique `stripe_webhook_events` ledger, so duplicate and concurrent delivery
+is idempotent. Payment creation also persists the unique request idempotency key
+and sends a deterministic Stripe idempotency key.
+
+Configure `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` in `.env`. Secrets,
+card data, webhook payloads, and PaymentIntent client secrets are never logged;
+raw gateway payloads are retained only in the existing payment gateway-response
+field for reconciliation. Payment success does not change lease status and does
+not create a booking or reservation.
+
 ### Conventions
 
 - UUID primary keys (`@db.Uuid`), snake_case tables and columns via `@map` / `@@map`
