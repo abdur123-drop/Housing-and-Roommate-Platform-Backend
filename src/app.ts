@@ -10,6 +10,7 @@ import config from "./app/config";
 import { globalErrorHandler } from "./app/middleware/globalErrorHandler";
 import { notFound } from "./app/middleware/notFound";
 import { AuthRoutes } from "./app/module/auth/auth.route";
+import { ApplicationRoutes } from "./app/module/application/application.route";
 import { BuildingRoutes } from "./app/module/building/building.route";
 import { AuthorizationTestRoutes } from "./app/module/internal/authorization-test.route";
 import { PropertyRoutes } from "./app/module/property/property.route";
@@ -44,6 +45,7 @@ app.use("/api/v1", RoomRoutes);
 app.use("/api/v1", RoomAvailabilityRoutes);
 app.use("/api/v1", RoommateRoutes);
 app.use("/api/v1", ViewingRequestRoutes);
+app.use("/api/v1", ApplicationRoutes);
 if (config.node_env === "test") {
 	app.use("/api/v1/__authz", AuthorizationTestRoutes);
 }

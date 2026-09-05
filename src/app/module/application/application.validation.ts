@@ -20,15 +20,6 @@ const statusSchema = z.enum(Object.values(ApplicationStatus), {
 	error: "Invalid application status",
 });
 
-const transitionStatusSchema = z.enum(
-	[
-		ApplicationStatus.APPROVED,
-		ApplicationStatus.REJECTED,
-		ApplicationStatus.WITHDRAWN,
-	],
-	{ error: "Invalid application transition status" },
-);
-
 const forbiddenClientFields = z.object({
 	id: z.never({ error: "id cannot be set here" }).optional(),
 	userId: z.never({ error: "userId cannot be set here" }).optional(),
@@ -76,10 +67,7 @@ export const ApplicationPropertyParamZodSchema = z
 	.strict();
 
 export const ApplicationActionZodSchema = z
-	.object({
-		status: transitionStatusSchema.optional(),
-		message: messageSchema,
-	})
+	.object({})
 	.strict()
 	.and(forbiddenClientFields);
 

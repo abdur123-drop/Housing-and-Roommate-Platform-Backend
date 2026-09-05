@@ -169,6 +169,53 @@ requests; admins have explicit global access. Status transitions use an atomic
 allows one transition to win. Viewing requests are private and never appear in
 public property search/detail responses.
 
+## Step 12 Applications
+
+Applications are the separate workflow for telling an owner or assigned property
+manager that a tenant wants to rent a room. They do not create a lease, reserve
+the room, change occupancy, charge a fee, or send notifications.
+
+Endpoints:
+
+- `POST /api/v1/applications` (tenant only)
+- `GET /api/v1/applications/my-applications` (the authenticated tenant only)
+- `GET /api/v1/applications/managed` (owner, assigned manager, or admin)
+- `GET /api/v1/properties/:propertyId/applications` (owner, assigned manager, or admin)
+- `GET /api/v1/applications/:id` (the tenant, property owner, assigned manager, or admin)
+- `PATCH /api/v1/applications/:id/approve` (property owner, assigned manager, or admin)
+- `PATCH /api/v1/applications/:id/reject` (property owner, assigned manager, or admin)
+- `PATCH /api/v1/applications/:id/withdraw` (the owning tenant)
+
+Application creation accepts `roomId`, an optional `message`, and an optional
+`viewingRequestId`. The server derives the tenant from authentication and the
+property through `room -> unit -> building -> property`. The room and every
+parent must be active, the property must be published, the room must be
+available, and it must have a non-deleted `AVAILABLE` room-availability row.
+Applications do not require an approved viewing request, but a supplied viewing
+request must belong to the tenant and room and be approved. No move-in date is
+stored by the current Application model, so availability is checked at room
+eligibility time rather than against an invented application date.
+
+The lifecycle is server-controlled:
+
+```text
+PENDING -> APPROVED
+PENDING -> REJECTED
+PENDING -> WITHDRAWN
+```
+
+Approved, rejected, and withdrawn applications are terminal. A tenant may submit
+again after a rejected or withdrawn application, but only one non-deleted pending
+application may exist for the same tenant and room. This is enforced both in the
+service and by the PostgreSQL partial unique index
+`applications_user_room_pending_key`; concurrent duplicates return `409 Conflict`.
+Approval, rejection, and withdrawal use an atomic pending-state update, so only
+one concurrent transition succeeds. Listings support `page`, `limit` (maximum
+100), `status`, `propertyId`, `roomId`, `from`, `to`, `sortBy`, and `sortOrder`.
+Sorting is whitelisted and deterministic. Normal queries exclude soft-deleted
+applications and deleted parent resources, and application DTOs select only
+the fields needed by the authenticated workflow.
+
 ### Conventions
 
 - UUID primary keys (`@db.Uuid`), snake_case tables and columns via `@map` / `@@map`
