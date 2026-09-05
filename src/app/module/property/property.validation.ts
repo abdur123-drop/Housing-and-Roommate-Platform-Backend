@@ -25,6 +25,25 @@ const decimalString = (field: string) =>
 		})
 		.optional();
 
+const positiveDecimalString = (field: string) =>
+	z
+		.union([z.string().trim(), z.number()])
+		.transform((value) => String(value))
+		.refine((value) => /^\d+(\.\d{1,2})?$/.test(value), {
+			message: `${field} must be a positive decimal with up to 2 decimals`,
+		})
+		.refine((value) => Number.isFinite(Number(value)), {
+			message: `${field} must be a finite number`,
+		})
+		.optional();
+
+const optionalIsoDate = (field: string) =>
+	z
+		.string()
+		.datetime({ offset: true, message: `${field} must be a valid ISO date` })
+		.transform((value) => new Date(value))
+		.optional();
+
 const propertyTypeSchema = z.enum(Object.values(PropertyType), {
 	error: "Invalid property type",
 });
@@ -109,17 +128,54 @@ export const PropertyQueryZodSchema = z
 		status: propertyStatusSchema.optional(),
 		propertyType: propertyTypeSchema.optional(),
 		city: z.string().trim().min(1).max(120).optional(),
+		state: z.string().trim().min(1).max(120).optional(),
 		country: z.string().trim().min(1).max(120).optional(),
+		minPrice: positiveDecimalString("minPrice"),
+		maxPrice: positiveDecimalString("maxPrice"),
+		availableFrom: optionalIsoDate("availableFrom"),
+		availableTo: optionalIsoDate("availableTo"),
 		sortBy: z
-			.enum(["createdAt", "updatedAt", "title", "city", "status"], {
-				error: "Invalid sort field",
-			})
+			.enum(
+				[
+					"createdAt",
+					"updatedAt",
+					"title",
+					"city",
+					"state",
+					"country",
+					"propertyType",
+					"status",
+				],
+				{
+					error: "Invalid sort field",
+				},
+			)
 			.default("createdAt"),
 		sortOrder: z
 			.enum(["asc", "desc"], { error: "Invalid sort order" })
 			.default("desc"),
 	})
-	.strict();
+	.strict()
+	.refine(
+		(query) =>
+			!query.minPrice ||
+			!query.maxPrice ||
+			Number(query.minPrice) <= Number(query.maxPrice),
+		{
+			message: "minPrice must be less than or equal to maxPrice",
+			path: ["maxPrice"],
+		},
+	)
+	.refine(
+		(query) =>
+			!query.availableFrom ||
+			!query.availableTo ||
+			query.availableFrom < query.availableTo,
+		{
+			message: "availableFrom must be before availableTo",
+			path: ["availableTo"],
+		},
+	);
 
 export const PropertyIdParamZodSchema = z
 	.object({

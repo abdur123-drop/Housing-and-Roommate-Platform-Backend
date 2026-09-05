@@ -30,7 +30,20 @@ export type TPropertyQuery = {
 	status?: PropertyStatus;
 	propertyType?: PropertyType;
 	city?: string;
+	state?: string;
 	country?: string;
-	sortBy: "createdAt" | "updatedAt" | "title" | "city" | "status";
+	minPrice?: string;
+	maxPrice?: string;
+	availableFrom?: Date;
+	availableTo?: Date;
+	sortBy:
+		| "createdAt"
+		| "updatedAt"
+		| "title"
+		| "city"
+		| "state"
+		| "country"
+		| "propertyType"
+		| "status";
 	sortOrder: "asc" | "desc";
 };

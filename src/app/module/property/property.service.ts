@@ -1,8 +1,10 @@
 import httpStatus from "http-status";
 import {
+	AvailabilityStatus,
 	Prisma,
 	type PrismaClient,
 	PropertyStatus,
+	RoomStatus,
 } from "../../../generated/prisma/client";
 import { prisma } from "../../lib/prisma";
 import {
@@ -48,6 +50,51 @@ const propertySelect = {
 	createdAt: true,
 	updatedAt: true,
 } as const;
+
+const publicPropertySelect = {
+	id: true,
+	title: true,
+	description: true,
+	propertyType: true,
+	address: true,
+	city: true,
+	state: true,
+	country: true,
+	zipCode: true,
+	latitude: true,
+	longitude: true,
+	status: true,
+	createdAt: true,
+	updatedAt: true,
+	buildings: {
+		where: { deletedAt: null },
+		select: {
+			units: {
+				where: { deletedAt: null },
+				select: {
+					rooms: {
+						where: { deletedAt: null, status: RoomStatus.AVAILABLE },
+						select: {
+							id: true,
+							monthlyRent: true,
+							availability: {
+								where: {
+									deletedAt: null,
+									status: AvailabilityStatus.AVAILABLE,
+								},
+								select: { id: true, availableFrom: true, availableTo: true },
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+} as const;
+
+type PublicPropertyRecord = Prisma.PropertyGetPayload<{
+	select: typeof publicPropertySelect;
+}>;
 
 const mapPrismaConflict = (error: unknown): never => {
 	if (
@@ -103,32 +150,172 @@ const buildWhere = (
 		andConditions.push({ city: { equals: query.city, mode: "insensitive" } });
 	}
 
+	if (query.state) {
+		andConditions.push({
+			state: { equals: query.state, mode: "insensitive" },
+		});
+	}
+
 	if (query.country) {
 		andConditions.push({
 			country: { equals: query.country, mode: "insensitive" },
 		});
 	}
 
+	if (
+		query.minPrice ||
+		query.maxPrice ||
+		query.availableFrom ||
+		query.availableTo
+	) {
+		andConditions.push({
+			buildings: {
+				some: {
+					deletedAt: null,
+					units: {
+						some: {
+							deletedAt: null,
+							rooms: {
+								some: buildRoomSearchWhere(query),
+							},
+						},
+					},
+				},
+			},
+		});
+	}
+
 	return { AND: andConditions };
 };
 
-const listWithMeta = async (query: TPropertyQuery, ownerId?: string) => {
+const buildRoomSearchWhere = (
+	query: Pick<
+		TPropertyQuery,
+		"minPrice" | "maxPrice" | "availableFrom" | "availableTo"
+	>,
+): Prisma.RoomWhereInput => {
+	const where: Prisma.RoomWhereInput = {
+		deletedAt: null,
+		status: RoomStatus.AVAILABLE,
+	};
+
+	if (query.minPrice || query.maxPrice) {
+		where.monthlyRent = {
+			gte: query.minPrice,
+			lte: query.maxPrice,
+		};
+	}
+
+	if (query.availableFrom || query.availableTo) {
+		where.availability = {
+			some: {
+				deletedAt: null,
+				status: AvailabilityStatus.AVAILABLE,
+				availableFrom: query.availableTo
+					? { lt: query.availableTo }
+					: undefined,
+				OR: query.availableFrom
+					? [
+							{ availableTo: null },
+							{ availableTo: { gt: query.availableFrom } },
+						]
+					: undefined,
+			},
+		};
+	}
+
+	return where;
+};
+
+const intersectsRequestedAvailability = (
+	availability: PublicPropertyRecord["buildings"][number]["units"][number]["rooms"][number]["availability"][number],
+	query: Pick<TPropertyQuery, "availableFrom" | "availableTo">,
+) => {
+	if (!query.availableFrom && !query.availableTo) return true;
+	if (query.availableTo && availability.availableFrom >= query.availableTo) {
+		return false;
+	}
+
+	if (query.availableFrom && availability.availableTo) {
+		return availability.availableTo > query.availableFrom;
+	}
+
+	return true;
+};
+
+const toNumber = (value: unknown): number | null => {
+	if (value === null || value === undefined) return null;
+	const numberValue = Number(value.toString());
+	return Number.isFinite(numberValue) ? numberValue : null;
+};
+
+const toPublicPropertyDto = (
+	property: PublicPropertyRecord,
+	query: Pick<TPropertyQuery, "availableFrom" | "availableTo"> = {},
+) => {
+	const rooms = property.buildings.flatMap((building) =>
+		building.units.flatMap((unit) => unit.rooms),
+	);
+	const activeAvailableRooms = rooms.filter((room) =>
+		query.availableFrom || query.availableTo
+			? room.availability.some((availability) =>
+					intersectsRequestedAvailability(availability, query),
+				)
+			: true,
+	);
+	const rents = activeAvailableRooms
+		.map((room) => toNumber(room.monthlyRent))
+		.filter((rent): rent is number => rent !== null);
+
+	return {
+		id: property.id,
+		title: property.title,
+		description: property.description,
+		propertyType: property.propertyType,
+		address: property.address,
+		city: property.city,
+		state: property.state,
+		country: property.country,
+		zipCode: property.zipCode,
+		latitude: toNumber(property.latitude),
+		longitude: toNumber(property.longitude),
+		status: property.status,
+		minMonthlyRent: rents.length ? Math.min(...rents) : null,
+		maxMonthlyRent: rents.length ? Math.max(...rents) : null,
+		availableRoomCount: activeAvailableRooms.length,
+		createdAt: property.createdAt,
+		updatedAt: property.updatedAt,
+	};
+};
+
+const listWithMeta = async (
+	query: TPropertyQuery,
+	ownerId?: string,
+	isPublicSearch = false,
+) => {
 	const skip = (query.page - 1) * query.limit;
 	const where = buildWhere(query, ownerId);
+	const orderBy = [{ [query.sortBy]: query.sortOrder }, { id: "asc" }] as
+		| Prisma.PropertyOrderByWithRelationInput
+		| Prisma.PropertyOrderByWithRelationInput[];
 
 	const [data, total] = await propertyPrisma.$transaction([
 		propertyPrisma.property.findMany({
 			where,
 			skip,
 			take: query.limit,
-			orderBy: { [query.sortBy]: query.sortOrder },
-			select: propertySelect,
+			orderBy,
+			select: isPublicSearch ? publicPropertySelect : propertySelect,
 		}),
 		propertyPrisma.property.count({ where }),
 	]);
 
 	return {
-		data,
+		data: isPublicSearch
+			? (data as PublicPropertyRecord[]).map((property) =>
+					toPublicPropertyDto(property, query),
+				)
+			: data,
 		meta: {
 			page: query.page,
 			limit: query.limit,
@@ -156,7 +343,8 @@ const createProperty = async (
 	}
 };
 
-const getProperties = async (query: TPropertyQuery) => listWithMeta(query);
+const getProperties = async (query: TPropertyQuery) =>
+	listWithMeta(query, undefined, true);
 
 const getMyProperties = async (query: TPropertyQuery, user: RequestUser) =>
 	listWithMeta(query, user.id);
@@ -164,14 +352,14 @@ const getMyProperties = async (query: TPropertyQuery, user: RequestUser) =>
 const getPropertyById = async (id: string) => {
 	const property = await propertyPrisma.property.findFirst({
 		where: { id, deletedAt: null, status: PropertyStatus.PUBLISHED },
-		select: propertySelect,
+		select: publicPropertySelect,
 	});
 
 	if (!property) {
 		throw new AppError(httpStatus.NOT_FOUND, "Property not found");
 	}
 
-	return property;
+	return toPublicPropertyDto(property as PublicPropertyRecord);
 };
 
 const updateProperty = async (

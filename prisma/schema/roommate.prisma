@@ -13,6 +13,7 @@ model RoommateProfile {
   smoking           Boolean   @default(false)
   pets              Boolean   @default(false)
   genderPreference  String?   @map("gender_preference")
+  isDiscoverable    Boolean   @default(true) @map("is_discoverable")
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)

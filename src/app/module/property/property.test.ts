@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import {
+	AvailabilityStatus,
 	Prisma,
 	PropertyStatus,
 	PropertyType,
+	RoomStatus,
 } from "../../../generated/prisma/client";
 import { AppRole } from "../../constants/roles";
 import type { RequestUser } from "../../middleware/checkAuth";
@@ -74,6 +76,33 @@ const propertyRecord = {
 	longitude: null,
 	createdAt: new Date("2026-01-01T00:00:00.000Z"),
 	updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+};
+
+const publicPropertyRecord = {
+	...propertyRecord,
+	buildings: [
+		{
+			units: [
+				{
+					rooms: [
+						{
+							id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+							monthlyRent: "15000",
+							status: RoomStatus.AVAILABLE,
+							availability: [
+								{
+									id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+									availableFrom: new Date("2026-10-01T00:00:00.000Z"),
+									availableTo: new Date("2026-11-01T00:00:00.000Z"),
+									status: AvailabilityStatus.AVAILABLE,
+								},
+							],
+						},
+					],
+				},
+			],
+		},
+	],
 };
 
 const validQuery = {
@@ -296,7 +325,7 @@ describe("property list/search/filter/pagination", () => {
 			where: { AND: unknown[] };
 			skip: number;
 			take: number;
-			orderBy: Record<string, string>;
+			orderBy: Record<string, string>[];
 		};
 		const capture: { findManyArgs?: FindManyArgs } = {};
 
@@ -306,7 +335,7 @@ describe("property list/search/filter/pagination", () => {
 			property: {
 				findMany: async (args: FindManyArgs) => {
 					capture.findManyArgs = args;
-					return [propertyRecord];
+					return [publicPropertyRecord];
 				},
 				count: async () => 1,
 			},
@@ -318,7 +347,13 @@ describe("property list/search/filter/pagination", () => {
 			limit: 5,
 			search: "lake",
 			city: "Dhaka",
+			state: "Dhaka",
+			country: "Bangladesh",
 			propertyType: PropertyType.APARTMENT,
+			minPrice: "10000",
+			maxPrice: "20000",
+			availableFrom: new Date("2026-10-15T00:00:00.000Z"),
+			availableTo: new Date("2026-10-20T00:00:00.000Z"),
 			sortBy: "title",
 			sortOrder: "asc",
 		});
@@ -331,15 +366,26 @@ describe("property list/search/filter/pagination", () => {
 		const findManyArgs = capture.findManyArgs;
 		assert.equal(findManyArgs.skip, 5);
 		assert.equal(findManyArgs.take, 5);
-		assert.deepEqual(findManyArgs.orderBy, { title: "asc" });
+		assert.deepEqual(findManyArgs.orderBy, [{ title: "asc" }, { id: "asc" }]);
 		assert.deepEqual(findManyArgs.where.AND.at(0), { deletedAt: null });
 		assert.deepEqual(findManyArgs.where.AND.at(1), {
 			status: PropertyStatus.PUBLISHED,
 		});
+		assert.ok(JSON.stringify(findManyArgs.where).includes("monthlyRent"));
+		assert.ok(JSON.stringify(findManyArgs.where).includes("availability"));
+		assert.equal("ownerId" in result.data[0], false);
+		assert.equal("managerId" in result.data[0], false);
+		const publicResult = result.data[0] as unknown as {
+			minMonthlyRent: number;
+			availableRoomCount: number;
+		};
+		assert.equal(publicResult.minMonthlyRent, 15000);
+		assert.equal(publicResult.availableRoomCount, 1);
 	});
 
 	it("returns only authenticated owner's active properties from my-properties", async () => {
 		let whereConditions: unknown[] = [];
+		let orderBy: unknown;
 
 		setDb({
 			$transaction: async (operations: Promise<unknown>[]) =>
@@ -347,6 +393,8 @@ describe("property list/search/filter/pagination", () => {
 			property: {
 				findMany: async (args: { where: { AND: unknown[] } }) => {
 					whereConditions = args.where.AND;
+					orderBy = (args as unknown as { orderBy: Record<string, string>[] })
+						.orderBy;
 					return [propertyRecord];
 				},
 				count: async () => 1,
@@ -357,6 +405,29 @@ describe("property list/search/filter/pagination", () => {
 
 		assert.deepEqual(whereConditions.at(0), { deletedAt: null });
 		assert.deepEqual(whereConditions.at(1), { ownerId: ownerA.id });
+		assert.deepEqual(orderBy, [{ createdAt: "desc" }, { id: "asc" }]);
+	});
+
+	it("keeps private and deleted property details inaccessible and returns a safe public detail DTO", async () => {
+		setDb({
+			property: {
+				findFirst: async (args: { where: { id: string } }) =>
+					args.where.id === propertyId ? publicPropertyRecord : null,
+			},
+		});
+
+		const result = await PropertyServices.getPropertyById(propertyId);
+		assert.equal(result.id, propertyId);
+		assert.equal("ownerId" in result, false);
+		assert.equal("managerId" in result, false);
+
+		await expectAppError(
+			() =>
+				PropertyServices.getPropertyById(
+					"dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+				),
+			404,
+		);
 	});
 });
 
@@ -392,6 +463,16 @@ describe("property validation", () => {
 				sortBy: "ownerId",
 				sortOrder: "sideways",
 				status: "ACTIVE",
+				minPrice: "-1",
+				availableFrom: "2026-12-01T00:00:00.000Z",
+				availableTo: "2026-10-01T00:00:00.000Z",
+			}).success,
+			false,
+		);
+		assert.equal(
+			PropertyValidation.PropertyQueryZodSchema.safeParse({
+				minPrice: "30000",
+				maxPrice: "10000",
 			}).success,
 			false,
 		);
@@ -414,9 +495,15 @@ describe("property validation", () => {
 			PropertyValidation.PropertyQueryZodSchema.safeParse({
 				search: "dhaka",
 				city: "Dhaka",
+				state: "Dhaka",
 				country: "Bangladesh",
+				minPrice: "10000",
+				maxPrice: "30000",
+				availableFrom: "2026-10-01T00:00:00.000Z",
+				availableTo: "2026-11-01T00:00:00.000Z",
 				status: PropertyStatus.PUBLISHED,
 				propertyType: PropertyType.APARTMENT,
+				sortBy: "propertyType",
 			}).success,
 			true,
 		);

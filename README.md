@@ -19,10 +19,11 @@ pnpm migrate:deploy       # or `pnpm migrate:dev` while developing
 pnpm dev
 ```
 
-The five roles (`OWNER`, `TENANT`, `ROOMMATE`, `PROPERTY_MANAGER`, `ADMIN`) are
-seeded idempotently on every boot from `src/app/utils/seed.ts`. An optional
-platform admin is seeded when `ADMIN_NAME` / `ADMIN_EMAIL` / `ADMIN_PASSWORD`
-are set.
+The three primary roles (`OWNER`, `TENANT`, `ADMIN`) are seeded idempotently on
+every boot from `src/app/utils/seed.ts`. A roommate is a tenant with a roommate
+profile and preferences; a property manager is a user assigned through
+`properties.manager_id`. Neither is a role. An optional platform admin is seeded
+when `ADMIN_NAME` / `ADMIN_EMAIL` / `ADMIN_PASSWORD` are set.
 
 ## Layout
 
@@ -60,6 +61,113 @@ users -> roommate_profiles / user_preferences -> preferences
 properties -> utility_bills -> utility_bill_splits
 properties -> maintenance_requests
 ```
+
+## Step 9 Roommate API
+
+Tenant-only profile management:
+
+- `POST /api/v1/roommate-profile`
+- `GET /api/v1/roommate-profile/me`
+- `PATCH /api/v1/roommate-profile/me`
+- `DELETE /api/v1/roommate-profile/me`
+
+Roommate preferences:
+
+- `GET /api/v1/roommate-preferences/me`
+- `PUT /api/v1/roommate-preferences/me`
+- `GET /api/v1/preferences`
+- `POST /api/v1/preferences` / `PATCH /api/v1/preferences/:id` /
+  `DELETE /api/v1/preferences/:id` for admins
+
+Discovery and matching:
+
+- `GET /api/v1/roommates`
+- `GET /api/v1/roommates/:id`
+- `GET /api/v1/roommates/matches`
+
+Discovery only returns active users with active, discoverable roommate profiles.
+It excludes the requesting tenant and never returns password, phone, refresh
+token, audit, or other internal user data. Profile ownership always comes from
+the authenticated user, never from client-provided `userId`.
+
+Compatibility scores are deterministic integers from 0 to 100. The formula is:
+budget 30%, preferred location 20%, move-in date 15%, lifestyle 20% (`smoking`,
+`pets`, and the existing `genderPreference` field as a soft same-value signal),
+and reusable preferences 15%. Missing dimensions are ignored and the remaining
+available weights are normalized; if no comparable dimensions exist, the neutral
+score is 50. Matching is calculated after database filtering and sorts the
+scored candidate window by compatibility.
+
+## Step 10 Property Search
+
+Public search uses the existing endpoint:
+
+```http
+GET /api/v1/properties
+```
+
+Supported filters:
+
+- `search`: case-insensitive contains match across `title`, `description`,
+  `address`, `city`, `state`, `country`, and `zipCode`.
+- `propertyType`: exact Prisma enum value such as `APARTMENT`, `HOUSE`,
+  `BUILDING`, `CONDO`, `VILLA`, or `OTHER`.
+- `city`, `state`, `country`: case-insensitive exact text filters.
+- `minPrice`, `maxPrice`: properties with at least one active, non-deleted room
+  whose `monthlyRent` falls inside the requested range.
+- `availableFrom`, `availableTo`: properties with at least one active room whose
+  non-deleted `AVAILABLE` availability intersects the requested half-open range
+  using `existing.availableFrom < requestedTo` and
+  `existing.availableTo > requestedFrom` when both sides exist.
+
+Pagination defaults to `page=1&limit=10`, caps `limit` at `100`, and returns the
+standard metadata: `page`, `limit`, `total`, and `totalPage`. Sorting is
+whitelisted to `createdAt`, `updatedAt`, `title`, `city`, `state`, `country`,
+`propertyType`, and `status`; every sort also adds `id ASC` as a deterministic
+secondary order for stable pagination.
+
+Public results only include `PUBLISHED`, non-deleted properties and never expose
+`ownerId`, `managerId`, contact credentials, audit data, `deletedAt`, or raw
+Prisma objects. Availability and room summaries exclude deleted buildings,
+units, rooms, and availability rows.
+
+## Step 11 Viewing Requests
+
+Viewing request endpoints:
+
+- `POST /api/v1/viewing-requests`
+- `GET /api/v1/viewing-requests/my-requests`
+- `GET /api/v1/viewing-requests/managed`
+- `GET /api/v1/properties/:propertyId/viewing-requests`
+- `GET /api/v1/viewing-requests/:id`
+- `PATCH /api/v1/viewing-requests/:id/approve`
+- `PATCH /api/v1/viewing-requests/:id/reject`
+- `PATCH /api/v1/viewing-requests/:id/cancel`
+
+Only tenants create normal viewing requests. The server derives `userId` from
+the authenticated user and derives `propertyId` through
+`room -> unit -> building -> property`; client-supplied ownership/status fields
+are rejected. Rooms must be active, non-deleted, under a published property, and
+the requested viewing timestamp must be in the future and inside an active,
+non-deleted `AVAILABLE` room availability interval using half-open semantics:
+`availableFrom <= requestedDate` and `availableTo > requestedDate` when
+`availableTo` exists.
+
+Lifecycle is server-controlled:
+
+```text
+PENDING -> APPROVED
+PENDING -> REJECTED
+PENDING -> CANCELLED
+```
+
+`APPROVED`, `REJECTED`, `CANCELLED`, and `COMPLETED` are treated as terminal for
+normal Step 11 operations. Owners and assigned property managers can approve or
+reject requests for their property; tenants can cancel only their own pending
+requests; admins have explicit global access. Status transitions use an atomic
+`updateMany` condition requiring `status=PENDING`, so concurrent processing only
+allows one transition to win. Viewing requests are private and never appear in
+public property search/detail responses.
 
 ### Conventions
 
