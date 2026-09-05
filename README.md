@@ -430,6 +430,57 @@ cookies and credentialed CORS behavior remain unchanged. Redis is closed during
 startup-failure cleanup, and Redis connection errors never alter database
 authorization semantics.
 
+## Step 19 Swagger / OpenAPI + Postman
+
+### Swagger
+
+Interactive docs and the machine-readable OpenAPI document:
+
+- Swagger UI: `GET /api/docs`
+- OpenAPI JSON: `GET /api/docs.json`
+
+Use **Authorize** in Swagger UI with a JWT access token:
+
+```http
+Authorization: Bearer <access_token>
+```
+
+Obtain the token from `POST /api/v1/auth/login` or `POST /api/v1/auth/register`.
+Refresh uses the HttpOnly `refreshToken` cookie (rotated; server stores a hash
+only). Do not paste refresh tokens into Swagger request bodies casually.
+
+The OpenAPI document covers all production `/api/v1` APIs. It does **not**
+include secrets, card data, or the test-only `/api/v1/__authz` route (mounted
+only when `NODE_ENV=test`).
+
+### Postman
+
+Import:
+
+- `postman/Housing-Roommate-Platform.postman_collection.json`
+- `postman/Housing-Roommate-Platform.postman_environment.json`
+
+Set `baseUrl` (default `http://localhost:5000`). Login and register requests
+run a test script that stores `accessToken`; protected requests use
+`Bearer {{accessToken}}`. Refresh testing relies on Postman’s cookie jar for
+the HttpOnly refresh cookie — refresh tokens are not stored as environment
+variables.
+
+Folders mirror the API domains (Authentication, Properties, Buildings, Units,
+Rooms, Room Availability, Roommates, Viewing Requests, Applications, Leases,
+Payments, Utility Bills, Maintenance Requests, Audit Logs) plus a short happy-path
+workflow folder.
+
+### API testing
+
+```bash
+pnpm test
+```
+
+Includes OpenAPI contract checks (`src/app/swagger.test.ts`) and Postman JSON
+validation (parseable collection/environment, required folders, no committed
+secrets, no test-only production route).
+
 ### Conventions
 
 - UUID primary keys (`@db.Uuid`), snake_case tables and columns via `@map` / `@@map`

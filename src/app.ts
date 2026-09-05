@@ -27,6 +27,7 @@ import { RoommateRoutes } from "./app/module/roommate/roommate.route";
 import { UnitRoutes } from "./app/module/unit/unit.route";
 import { ViewingRequestRoutes } from "./app/module/viewingRequest/viewingRequest.route";
 import { UtilityBillRoutes } from "./app/module/utilityBill/utilityBill.route";
+import { mountSwagger } from "./app/swagger";
 
 const app: Application = express();
 
@@ -58,6 +59,9 @@ app.use(
 app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
+
+// OpenAPI UI + JSON (does not expose secrets or test-only routes)
+mountSwagger(app);
 
 app.use("/api/v1/auth", AuthRoutes);
 app.use("/api/v1/properties", PropertyRoutes);

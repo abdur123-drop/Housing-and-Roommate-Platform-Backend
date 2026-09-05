@@ -14,6 +14,9 @@ importers:
       '@prisma/client':
         specifier: ^7.9.1
         version: 7.10.0(prisma@7.10.0(@types/react@19.2.18)(magicast@0.5.4)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(typescript@5.9.3)
+      '@types/swagger-ui-express':
+        specifier: ^4.1.8
+        version: 4.1.8
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
@@ -59,6 +62,9 @@ importers:
       stripe:
         specifier: ^22.6.1
         version: 22.6.1(@types/node@26.4.1)
+      swagger-ui-express:
+        specifier: ^5.0.1
+        version: 5.0.1(express@5.2.1)
       zod:
         specifier: ^4.4.3
         version: 4.5.4
@@ -687,6 +693,9 @@ packages:
     peerDependencies:
       '@redis/client': ^6.2.1
 
+  '@scarf/scarf@1.4.0':
+    resolution: {integrity: sha512-xxeapPiUXdZAE3che6f3xogoJPeZgig6omHEy1rIY5WVsB3H2BHNnZH+gHG6x91SCWyQCzWGsuL2Hh3ClO5/qQ==}
+
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
@@ -796,6 +805,9 @@ packages:
 
   '@types/serve-static@2.2.0':
     resolution: {integrity: sha512-8mam4H1NHLtu7nmtalF7eyBH14QyOASmcxHhSfEoRyr0nP/YdoesEtU+uSRvMe96TW/HPTtkoKqQLl53N7UXMQ==}
+
+  '@types/swagger-ui-express@4.1.8':
+    resolution: {integrity: sha512-AhZV8/EIreHFmBV5wAs0gzJUNq9JbbSXgJLQubCC0jtIo6prnI9MIRRxnU4MZX9RB9yXxF1V4R7jtLl/Wcj31g==}
 
   '@typescript-eslint/eslint-plugin@8.69.0':
     resolution: {integrity: sha512-t5jQTKPIgVW1PE6dR6H6Qz5gm8zjMlX5/2gRaOGd9eO6V7J+tQc6iWKukEe7dY8u9HyYasQ0yfF0/FSSTEO2gA==}
@@ -1930,6 +1942,15 @@ packages:
       '@types/node':
         optional: true
 
+  swagger-ui-dist@5.32.15:
+    resolution: {integrity: sha512-TSFER+rFQlf1nzk6WvKkMaHTxAPQ3eAAxigFThnxQedSREanfZgSbJFayZVs/ULnSbNdrJOb99vLD6xpb3R3eg==}
+
+  swagger-ui-express@5.0.1:
+    resolution: {integrity: sha512-SrNU3RiBGTLLmFU8GIJdOdanJTl4TOmT27tt3bWWHppqYmAZ6IDuEuBvMU6nZq0zLEe6b/1rACXCgLZqO6ZfrA==}
+    engines: {node: '>= v0.10.32'}
+    peerDependencies:
+      express: '>=4.0.0 || >=5.0.0-beta'
+
   tinyglobby@0.2.17:
     resolution: {integrity: sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==}
     engines: {node: '>=12.0.0'}
@@ -2466,6 +2487,8 @@ snapshots:
     dependencies:
       '@redis/client': 6.2.1
 
+  '@scarf/scarf@1.4.0': {}
+
   '@standard-schema/spec@1.1.0': {}
 
   '@types/body-parser@1.19.6':
@@ -2585,6 +2608,11 @@ snapshots:
     dependencies:
       '@types/http-errors': 2.0.5
       '@types/node': 25.9.5
+
+  '@types/swagger-ui-express@4.1.8':
+    dependencies:
+      '@types/express': 5.0.6
+      '@types/serve-static': 2.2.0
 
   '@typescript-eslint/eslint-plugin@8.69.0(@typescript-eslint/parser@8.69.0(eslint@10.9.1(jiti@2.7.0))(typescript@5.9.3))(eslint@10.9.1(jiti@2.7.0))(typescript@5.9.3)':
     dependencies:
@@ -3773,6 +3801,15 @@ snapshots:
   stripe@22.6.1(@types/node@26.4.1):
     optionalDependencies:
       '@types/node': 26.4.1
+
+  swagger-ui-dist@5.32.15:
+    dependencies:
+      '@scarf/scarf': 1.4.0
+
+  swagger-ui-express@5.0.1(express@5.2.1):
+    dependencies:
+      express: 5.2.1
+      swagger-ui-dist: 5.32.15
 
   tinyglobby@0.2.17:
     dependencies:
