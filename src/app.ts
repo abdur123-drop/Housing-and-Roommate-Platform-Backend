@@ -11,6 +11,7 @@ import { globalErrorHandler } from "./app/middleware/globalErrorHandler";
 import { notFound } from "./app/middleware/notFound";
 import { AuthRoutes } from "./app/module/auth/auth.route";
 import { ApplicationRoutes } from "./app/module/application/application.route";
+import { AuditLogRoutes } from "./app/module/auditLog/auditLog.route";
 import { BuildingRoutes } from "./app/module/building/building.route";
 import { AuthorizationTestRoutes } from "./app/module/internal/authorization-test.route";
 import { PropertyRoutes } from "./app/module/property/property.route";
@@ -40,14 +41,22 @@ app.use(
 	}),
 );
 
+app.use((_req, res, next) => {
+	res.setHeader("X-Content-Type-Options", "nosniff");
+	res.setHeader("X-Frame-Options", "DENY");
+	res.setHeader("Referrer-Policy", "no-referrer");
+	if (config.isProduction) res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+	next();
+});
+
 app.use(
 	"/api/v1/payments/webhook/stripe",
 	express.raw({ type: "application/json" }),
 	StripeWebhookRoutes,
 );
 
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.use(express.urlencoded({ extended: true, limit: "100kb" }));
+app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 
 app.use("/api/v1/auth", AuthRoutes);
@@ -62,6 +71,7 @@ app.use("/api/v1", PaymentRoutes);
 app.use("/api/v1", RoommateRoutes);
 app.use("/api/v1", ViewingRequestRoutes);
 app.use("/api/v1", ApplicationRoutes);
+app.use("/api/v1", AuditLogRoutes);
 app.use("/api/v1", UtilityBillRoutes);
 if (config.node_env === "test") {
 	app.use("/api/v1/__authz", AuthorizationTestRoutes);

@@ -8,6 +8,19 @@ import {
 } from "../../../generated/prisma/client";
 import { prisma } from "../../lib/prisma";
 import {
+	getJsonCache,
+	getPropertyCacheVersion,
+	PROPERTY_CACHE_TTL_SECONDS,
+	invalidatePropertyCache,
+	redisKeys,
+setJsonCache,
+} from "../../lib/cache";
+import {
+	AuditAction,
+	AuditResourceType,
+	createAuditLogIfAvailable,
+} from "../../utils/audit";
+import {
 	AuthorizationService,
 	setAuthorizationPrismaForTest,
 } from "../../middleware/authorize";
@@ -330,7 +343,7 @@ const createProperty = async (
 	user: RequestUser,
 ) => {
 	try {
-		return await propertyPrisma.property.create({
+		const created = await propertyPrisma.property.create({
 			data: {
 				...payload,
 				ownerId: user.id,
@@ -338,13 +351,29 @@ const createProperty = async (
 			},
 			select: propertySelect,
 		});
+		await invalidatePropertyCache();
+		await createAuditLogIfAvailable(propertyPrisma, {
+			actorUserId: user.id,
+			action: AuditAction.PROPERTY_CREATED,
+			entityType: AuditResourceType.PROPERTY,
+			entityId: created.id,
+		});
+		return created;
 	} catch (error) {
 		return mapPrismaConflict(error);
 	}
 };
 
-const getProperties = async (query: TPropertyQuery) =>
-	listWithMeta(query, undefined, true);
+const getProperties = async (query: TPropertyQuery) => {
+	const canonicalQuery = JSON.stringify(query);
+	const version = await getPropertyCacheVersion();
+	const key = redisKeys.propertySearch(version, canonicalQuery);
+	const cached = await getJsonCache<Awaited<ReturnType<typeof listWithMeta>>>(key);
+	if (cached) return cached;
+	const result = await listWithMeta(query, undefined, true);
+	await setJsonCache(key, result, PROPERTY_CACHE_TTL_SECONDS);
+	return result;
+};
 
 const getMyProperties = async (query: TPropertyQuery, user: RequestUser) =>
 	listWithMeta(query, user.id);
@@ -370,11 +399,19 @@ const updateProperty = async (
 	await AuthorizationService.authorizeProperty(user, id, "access", true);
 
 	try {
-		return await propertyPrisma.property.update({
+		const updated = await propertyPrisma.property.update({
 			where: { id },
 			data: payload,
 			select: propertySelect,
 		});
+		await invalidatePropertyCache();
+		await createAuditLogIfAvailable(propertyPrisma, {
+			actorUserId: user.id,
+			action: AuditAction.PROPERTY_UPDATED,
+			entityType: AuditResourceType.PROPERTY,
+			entityId: updated.id,
+		});
+		return updated;
 	} catch (error) {
 		return mapPrismaConflict(error);
 	}
@@ -383,11 +420,19 @@ const updateProperty = async (
 const deleteProperty = async (id: string, user: RequestUser) => {
 	await AuthorizationService.authorizeProperty(user, id, "owner", true);
 
-	return propertyPrisma.property.update({
+	const deleted = await propertyPrisma.property.update({
 		where: { id },
 		data: { deletedAt: new Date() },
 		select: propertySelect,
 	});
+	await invalidatePropertyCache();
+	await createAuditLogIfAvailable(propertyPrisma, {
+		actorUserId: user.id,
+		action: AuditAction.PROPERTY_DELETED,
+		entityType: AuditResourceType.PROPERTY,
+		entityId: deleted.id,
+	});
+	return deleted;
 };
 
 const assignManager = async (
@@ -408,11 +453,22 @@ const assignManager = async (
 		}
 	}
 
-	return propertyPrisma.property.update({
+	const updated = await propertyPrisma.property.update({
 		where: { id },
 		data: { managerId: payload.managerId },
 		select: propertySelect,
 	});
+	await invalidatePropertyCache();
+	await createAuditLogIfAvailable(propertyPrisma, {
+		actorUserId: user.id,
+		action: payload.managerId
+			? AuditAction.PROPERTY_MANAGER_ASSIGNED
+			: AuditAction.PROPERTY_MANAGER_REMOVED,
+		entityType: AuditResourceType.PROPERTY,
+		entityId: updated.id,
+		metadata: { managerId: payload.managerId },
+	});
+	return updated;
 };
 
 export const PropertyServices = {

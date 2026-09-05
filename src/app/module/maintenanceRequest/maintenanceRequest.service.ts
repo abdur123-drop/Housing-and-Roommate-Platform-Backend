@@ -7,6 +7,11 @@ import {
 } from "../../../generated/prisma/client";
 import { AppRole } from "../../constants/roles";
 import { prisma } from "../../lib/prisma";
+import {
+	AuditAction,
+	AuditResourceType,
+	createAuditLogIfAvailable,
+} from "../../utils/audit";
 import type { RequestUser } from "../../middleware/checkAuth";
 import { AppError } from "../../utils/AppError";
 import type {
@@ -193,6 +198,12 @@ const createMaintenanceRequest = async (
 		},
 		select: requestSelect,
 	});
+	await createAuditLogIfAvailable(maintenancePrisma, {
+		actorUserId: user.id,
+		action: AuditAction.MAINTENANCE_REQUEST_CREATED,
+		entityType: AuditResourceType.MAINTENANCE_REQUEST,
+		entityId: request.id,
+	});
 	return toDto(request);
 };
 
@@ -353,6 +364,19 @@ const transitionRequest = async (
 			httpStatus.CONFLICT,
 			"Maintenance request is not in the required state",
 		);
+	const auditAction =
+		action === "start"
+			? AuditAction.MAINTENANCE_REQUEST_STARTED
+			: action === "resolve"
+				? AuditAction.MAINTENANCE_REQUEST_RESOLVED
+				: AuditAction.MAINTENANCE_REQUEST_CLOSED;
+	await createAuditLogIfAvailable(maintenancePrisma, {
+		actorUserId: user.id,
+		action: auditAction,
+		entityType: AuditResourceType.MAINTENANCE_REQUEST,
+		entityId: id,
+		metadata: { from: expected, to: next },
+	});
 	return getRequestById(id, user);
 };
 

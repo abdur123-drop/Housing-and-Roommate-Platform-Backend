@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { auth } from "../../middleware/checkAuth";
+import { normalizeRateLimitEmail, redisRateLimit } from "../../middleware/rateLimit";
 import { validateRequest } from "../../middleware/validateRequest";
 import { AuthController } from "./auth.controller";
 import { AuthValidation } from "./auth.validation";
@@ -8,18 +9,22 @@ const router = Router();
 
 router.post(
 	"/register",
+	redisRateLimit({ namespace: "register-ip", limit: 10, windowSeconds: 3600, keyGenerator: (req) => req.ip ?? "unknown" }),
 	validateRequest(AuthValidation.RegisterZodSchema),
 	AuthController.register,
 );
 
 router.post(
 	"/login",
+	redisRateLimit({ namespace: "login-ip", limit: 20, windowSeconds: 60, keyGenerator: (req) => req.ip ?? "unknown" }),
+	redisRateLimit({ namespace: "login-account", limit: 8, windowSeconds: 300, keyGenerator: (req) => normalizeRateLimitEmail(req.body?.email) }),
 	validateRequest(AuthValidation.LoginZodSchema),
 	AuthController.login,
 );
 
 router.post(
 	"/refresh-token",
+	redisRateLimit({ namespace: "refresh-ip", limit: 30, windowSeconds: 60, keyGenerator: (req) => req.ip ?? "unknown" }),
 	validateRequest(AuthValidation.RefreshTokenZodSchema),
 	AuthController.refreshToken,
 );

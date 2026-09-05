@@ -9,18 +9,23 @@ import config from "../config";
 import { AppError, type TErrorSource } from "../utils/AppError";
 
 export const globalErrorHandler = async (
-	err: any,
+	err: unknown,
 	_req: Request,
 	res: Response,
 	_next: NextFunction,
 ) => {
+	const errorInstance =
+		err instanceof Error
+			? err
+			: new Error(typeof err === "string" ? err : "Internal Server Error");
+
 	if (config.node_env === "development") {
-		console.log("Error from Global Error Handler", err);
+		console.log("Error from Global Error Handler", errorInstance);
 	}
 
 	let statusCode: number = httpStatus.INTERNAL_SERVER_ERROR;
-	let errorMessage = err.message || "Internal Server Error";
-	const errorName = err.name || "Internal Server Error";
+	let errorMessage = errorInstance.message || "Internal Server Error";
+	const errorName = errorInstance.name || "Internal Server Error";
 	let errorSources: TErrorSource[] = [];
 
 	if (err instanceof ZodError) {
@@ -88,6 +93,6 @@ export const globalErrorHandler = async (
 		message:
 			isServerError && !isDev ? "Internal Server Error" : errorMessage,
 		errors: errorSources,
-		stack: isDev ? err.stack : undefined,
+		stack: isDev ? errorInstance.stack : undefined,
 	});
 };

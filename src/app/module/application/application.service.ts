@@ -11,6 +11,11 @@ import {
 import { AppRole } from "../../constants/roles";
 import { prisma } from "../../lib/prisma";
 import {
+	AuditAction,
+	AuditResourceType,
+	createAuditLogIfAvailable,
+} from "../../utils/audit";
+import {
 	AuthorizationService,
 	setAuthorizationPrismaForTest,
 } from "../../middleware/authorize";
@@ -336,10 +341,7 @@ const buildListWhere = (
 					building: {
 						property: {
 							deletedAt: null,
-							OR: [
-								{ ownerId: scope.user.id },
-								{ managerId: scope.user.id },
-							],
+							OR: [{ ownerId: scope.user.id }, { managerId: scope.user.id }],
 						},
 					},
 				},
@@ -416,7 +418,10 @@ const listWithMeta = async (
 	};
 };
 
-const getMyApplications = async (query: TApplicationQuery, user: RequestUser) => {
+const getMyApplications = async (
+	query: TApplicationQuery,
+	user: RequestUser,
+) => {
 	ensureTenant(user);
 	return listWithMeta(query, { type: "tenant", userId: user.id });
 };
@@ -427,7 +432,9 @@ const getManagedApplications = async (
 ) => {
 	if (
 		!isAdmin(user) &&
-		!user.roles.some((role) => role === AppRole.OWNER || role === AppRole.TENANT)
+		!user.roles.some(
+			(role) => role === AppRole.OWNER || role === AppRole.TENANT,
+		)
 	) {
 		throw new AppError(
 			httpStatus.FORBIDDEN,
@@ -452,7 +459,12 @@ const getPropertyApplications = async (
 	query: TApplicationQuery,
 	user: RequestUser,
 ) => {
-	await AuthorizationService.authorizeProperty(user, propertyId, "access", true);
+	await AuthorizationService.authorizeProperty(
+		user,
+		propertyId,
+		"access",
+		true,
+	);
 	return listWithMeta(query, { type: "property", propertyId });
 };
 
@@ -577,6 +589,18 @@ const transitionApplication = async (
 			"Application has already been processed",
 		);
 	}
+	await createAuditLogIfAvailable(applicationPrisma, {
+		actorUserId: user.id,
+		action:
+			action === "approve"
+				? AuditAction.APPLICATION_APPROVED
+				: action === "reject"
+					? AuditAction.APPLICATION_REJECTED
+					: AuditAction.APPLICATION_WITHDRAWN,
+		entityType: AuditResourceType.APPLICATION,
+		entityId: id,
+		metadata: { from: ApplicationStatus.PENDING, to: nextStatus },
+	});
 
 	const result = await applicationPrisma.application.findFirst({
 		where: { id, deletedAt: null },

@@ -8,6 +8,11 @@ import {
 } from "../../../generated/prisma/client";
 import { AppRole } from "../../constants/roles";
 import { prisma } from "../../lib/prisma";
+import {
+	AuditAction,
+	AuditResourceType,
+	createAuditLogIfAvailable,
+} from "../../utils/audit";
 import type { RequestUser } from "../../middleware/checkAuth";
 import { AppError } from "../../utils/AppError";
 import type { TCreateLeasePayload, TLeaseQuery } from "./lease.interface";
@@ -258,7 +263,7 @@ const createLease = async (payload: TCreateLeasePayload, user: RequestUser) => {
 	}
 
 	try {
-		return await leasePrisma.$transaction(async (tx) => {
+		const created = await leasePrisma.$transaction(async (tx) => {
 			await lockRoom(tx, application.roomId);
 			const activeLease = await tx.lease.findFirst({
 				where: {
@@ -298,6 +303,13 @@ const createLease = async (payload: TCreateLeasePayload, user: RequestUser) => {
 				select: leaseSelect,
 			});
 		});
+		await createAuditLogIfAvailable(leasePrisma, {
+			actorUserId: user.id,
+			action: AuditAction.LEASE_CREATED,
+			entityType: AuditResourceType.LEASE,
+			entityId: created.id,
+		});
+		return created;
 	} catch (error) {
 		return mapConflict(error);
 	}
@@ -429,6 +441,13 @@ const terminateLease = async (id: string, user: RequestUser) => {
 	} else {
 		throw new AppError(httpStatus.NOT_FOUND, "Lease not found");
 	}
+	await createAuditLogIfAvailable(leasePrisma, {
+		actorUserId: user.id,
+		action: AuditAction.LEASE_TERMINATED,
+		entityType: AuditResourceType.LEASE,
+		entityId: id,
+		metadata: { from: LeaseStatus.ACTIVE, to: LeaseStatus.TERMINATED },
+	});
 	return getLeaseById(id, user);
 };
 

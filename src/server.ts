@@ -1,6 +1,7 @@
 import app from "./app";
 import config, { validateAuthConfig } from "./app/config";
 import { prisma } from "./app/lib/prisma";
+import { disconnectRedis } from "./app/lib/redis";
 import { seedAdmin, seedRoles } from "./app/utils/seed";
 
 const PORT = config.port ?? 5000;
@@ -23,6 +24,7 @@ const main = async () => {
 	} catch (error) {
 		console.error("Error starting the server:", error);
 		await prisma.$disconnect();
+		await disconnectRedis();
 		process.exit(1);
 	}
 };

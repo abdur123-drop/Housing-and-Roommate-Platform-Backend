@@ -370,6 +370,66 @@ access is explicit. Normal queries exclude soft-deleted requests, tenants,
 rooms, units, buildings, and properties. Maintenance requests do not create
 payments, utility bills, notifications, work orders, or schedules.
 
+## Step 17 Soft Delete and Audit Logs
+
+The soft-delete entities are `users`, `properties`, `buildings`, `units`,
+`rooms`, `room_availability`, `roommate_profiles`, `preferences`,
+`viewing_requests`, `applications`, `leases`, and `maintenance_requests`.
+Normal reads, nested relations, authorization checks, creates, and updates
+exclude rows where `deletedAt` is not null. Deleted parents make their active
+children inaccessible through normal APIs without physically deleting the child
+history. Existing delete endpoints set `deletedAt` server-side; clients cannot
+submit it. There is no public restore endpoint in Step 17.
+
+`rent_payments`, `utility_bills`, and `utility_bill_splits` remain financial
+history and are intentionally not soft-deleted or physically removed.
+
+Audit records use the existing immutable `audit_logs` model. Server-side
+`AuditAction` and `AuditResourceType` constants control the action and resource
+type; clients cannot forge either value or the actor. The actor comes from the
+authenticated user, and resource IDs come from successful mutations. Metadata
+is sanitized to remove passwords, tokens, secrets, authorization headers,
+cookies, card data, CVCs, and client secrets. IP and user-agent values are only
+accepted from trusted server context when supplied.
+
+Critical property, application, lease, and maintenance mutations write audit
+events through the centralized audit service. The admin-only endpoint
+`GET /api/v1/audit-logs` provides validated, paginated, read-only retrieval with
+action, resource, actor, and date filters. No update or delete audit endpoint
+exists. Audit failures are not silently swallowed when the audit model is
+available; the service test doubles used by existing modules may omit that
+delegate for isolated unit tests.
+
+## Step 18 Security Hardening and Redis
+
+Redis is an optimization and abuse-control dependency, never the source of
+truth for users, roles, authorization, leases, payments, bills, or maintenance
+requests. Configure it with `REDIS_URL`. Redis keys use the `housing:` namespace
+and hashed identities/query payloads; secrets, tokens, cookies, credentials,
+and payment data are never stored.
+
+Authentication abuse controls protect registration, login, and refresh-token
+routes. Login uses independent IP and normalized-email buckets; registration
+uses an IP bucket; refresh uses an IP bucket. Counters use an atomic Redis Lua
+script combining `INCR` and first-request `EXPIRE`. Exceeded requests return
+`429` with `Retry-After`. Rate limiting fails closed with `503` when Redis is
+unavailable because bypassing authentication abuse controls is unsafe.
+
+Public `GET /api/v1/properties` uses a cache-aside cache containing only the
+existing public DTO and pagination metadata. Query parameters are normalized
+by the validated query object, hashed with SHA-256, and keyed with a version
+generation. Entries expire after 60 seconds. Property creation/update/delete
+and manager changes increment the generation. Cache reads and writes fail open
+to PostgreSQL, which remains authoritative; malformed cache JSON is discarded.
+No private resource or authorization decision is cached.
+
+The API also applies bounded request bodies (`1mb` JSON and `100kb` URL-encoded)
+and safe API headers including content-type sniffing, frame, referrer, and
+production-only HSTS protection. Existing HttpOnly, environment-aware auth
+cookies and credentialed CORS behavior remain unchanged. Redis is closed during
+startup-failure cleanup, and Redis connection errors never alter database
+authorization semantics.
+
 ### Conventions
 
 - UUID primary keys (`@db.Uuid`), snake_case tables and columns via `@map` / `@@map`

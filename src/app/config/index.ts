@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import path from "path";
+import path from "node:path";
 
 dotenv.config({ path: path.join(process.cwd(), ".env") });
 
@@ -23,6 +23,7 @@ const config = {
 	admin_password: process.env.ADMIN_PASSWORD,
 	stripe_secret_key: process.env.STRIPE_SECRET_KEY,
 	stripe_webhook_secret: process.env.STRIPE_WEBHOOK_SECRET,
+	redis_url: process.env.REDIS_URL,
 };
 
 /** Minimum entropy we accept for a signing secret: 32 chars (~128 bits hex). */
