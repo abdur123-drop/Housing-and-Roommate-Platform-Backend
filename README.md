@@ -460,7 +460,7 @@ Import:
 - `postman/Housing-Roommate-Platform.postman_collection.json`
 - `postman/Housing-Roommate-Platform.postman_environment.json`
 
-Set `baseUrl` (default `http://localhost:5000`). Login and register requests
+Set `baseUrl` (default `https://housing-and-rommate-platform-backen.vercel.app`). Login and register requests
 run a test script that stores `accessToken`; protected requests use
 `Bearer {{accessToken}}`. Refresh testing relies on Postman’s cookie jar for
 the HttpOnly refresh cookie — refresh tokens are not stored as environment

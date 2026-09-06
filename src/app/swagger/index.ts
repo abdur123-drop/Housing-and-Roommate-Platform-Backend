@@ -26,7 +26,7 @@ export type OpenApiDocument = {
  * Test-only `/api/v1/__authz` is never included when NODE_ENV !== "test".
  */
 export const getOpenApiDocument = (): OpenApiDocument => {
-	const serverUrl = config.backend_url?.replace(/\/$/, "") || "http://localhost:5000";
+	const serverUrl = config.backend_url?.replace(/\/$/, "") || "https://housing-and-rommate-platform-backen.vercel.app";
 
 	const paths = buildPaths();
 
@@ -74,7 +74,7 @@ export const getOpenApiDocument = (): OpenApiDocument => {
 				description: "Configured APP_URL or local development default",
 			},
 			{
-				url: "http://localhost:5000",
+				url: "https://housing-and-rommate-platform-backen.vercel.app",
 				description: "Local development",
 			},
 		],
